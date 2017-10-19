@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-import sys
-import os
-import redis
-import ssdeep
-import hashlib
-import json
-import secrets
 from datetime import datetime as dt
 from optparse import OptionParser
+import hashlib
+import json
+import os
+import re
+import redis
+import secrets
+import ssdeep
+import sys
 
 
 parser = OptionParser()
-# parser.add_option("-c", "--context", dest="context", action='store',
-#                  type='string',
-#                  help="is it known malware (y=/n/?)",
-#                  metavar="<y|n|?>")
+parser.add_option("-c", "--context", dest="context", action='store',
+                  type='string',
+                  help="Always add context. E.g.: \"spam\" or \"honeydrops\"",
+                  metavar="REQUIRED")
 parser.add_option("-r", "--redisdb", dest="redisdb", action='store',
                   type='int',
                   help="select the redisdb #. to store in. defaults to 0",
@@ -25,52 +26,54 @@ parser.add_option("-t", "--virustotal", dest="virustotal", action='store',
                   type='string', help="use virustotal as a source.",
                   metavar="virustotal output")
 parser.add_option("-j", "--json", dest="jason", action='store', type='string',
-                  help="""use json formatted strings s a source:
+                  help="""use json formatted strings as source:
                   ["ssdeephash","some string","sha256"]
                   cat json|while read line; do ./kathe.py -j "${line}";done""",
-                  metavar="jason input")
-# parser.add_option("-v", "--verbose",
-#                  default=False,
-#                  help="print results")
+                  metavar="JSON input")
+parser.add_option("-v", "--verbose", action="store_true", help="print results")
 
 (options, args) = parser.parse_args()
 
 
-# ugly
+# Ugly way to check you are actually giving us to work
+# with.
 if options.filename is None and options.virustotal is None\
- and options.jason is None:
+ and options.jason is None or options.context is None:
     print(parser.error("Missing options, see " + sys.argv[0] + " -h"))
 
-# if options.verbose:
-# XXX debug test file
-# contains spaces
-filename = None
 
-# By default, store in Redis db 0
+# To start with, set all to None.
+filename = None
+filessdeep = None
+filesha256 = None
+
+# By default, store in Redis db 0.
 if options.redisdb:
     redisdbnr = options.redisdb
 else:
     redisdbnr = 0
 
-# if not options.context:
-#    print('you forgot to add context with "-c" <y(es), n(o), ?(dunno)>')
-#    exit(1)
-
-# elif options.context.lower() in ['y', 'n', 'u']:
-#    malware = options.context
-# else:
-#    malware = options.context
-#    print('context option "-c {}" not one of "y(es)", "n(o)",\
-# "u(nknown)"'.format(malware))
-#    exit(1)
-
-# connect to redis
-# r = redis.Redis('localhost')
-# convert all responses to strings, not bytes
+# Connect to redis.
+# Also, convert all responses to strings, not bytes
 r = redis.StrictRedis('localhost', 6379, charset="utf-8",
                       decode_responses=True)
-# XXX debug flushall to trigger parsing
-# r.flushall()
+
+
+def cleancontext(contextstring):
+    """Remove all but 0-9 and a-z from the context option.
+    We need to do this to make splitting the strings by
+    other tools reliable."""
+    pattern = re.compile('[\W_]+')
+    cleancontextstring = pattern.sub('', contextstring)
+    return cleancontextstring
+
+
+# Making sure the context string doesn't ruin a perfectly
+# beautiful string. Also, last ditch protection with NONE.
+if options.context:
+    filecontext = cleancontext(options.context)
+else:
+    filecontext = 'NONE'
 
 
 def cleanname(filename):
@@ -142,7 +145,7 @@ def get_ssdeep_sets(rolling_window_ssdeep, filessdeep):
     """ create a set of ssdeep hashes matching filesssdeep
     from the rolling_window set, which does not contain
     filessdeep hash itself. Using '.discard' to silently
-    return without filessdeep itself."""
+    return without filessdeep."""
     siblings_set = r.smembers(rolling_window_ssdeep)
     siblings_set.discard(filessdeep)
     return siblings_set
@@ -150,22 +153,33 @@ def get_ssdeep_sets(rolling_window_ssdeep, filessdeep):
 
 def add_ssdeep_to_rolling_window(rolling_window_ssdeep, filessdeep):
     """This function adds the filessdeep hash to all the matching
-    rolling_window."""
+    rolling_windows."""
     r.sadd(rolling_window_ssdeep, filessdeep)
 
 
-def add_info(filename, filesha256, filessdeep):
-    """the three info fields contain a set (hence: unique) of information
-    about the added entity. This way sha256<>filename<>filessdeep are
+def add_info(filename, filesha256, filessdeep, context):
+    """The four info fields contain a set (read: unique) of information
+    about the added entity. This way sha256/filename/filessdeep are
     linked and retrievable."""
     r.sadd('info:filename:{}'.format(filename),
-           'sha256:{}:ssdeep:{}'.format(filesha256, filessdeep))
+           'sha256:{}:ssdeep:{}:context:{}'.format(filesha256,
+                                                   filessdeep,
+                                                   filecontext))
+    r.sadd('info:context:{}'.format(filecontext),
+           'sha256:{}:ssdeep{}:filename:{}'.format(filesha256,
+                                                   filessdeep,
+                                                   filename))
     r.sadd('info:ssdeep:{}'.format(filessdeep),
-           'sha256:{}:filename:{}'.format(filesha256, filename))
+           'sha256:{}:context:{}:filename:{}'.format(filesha256,
+                                                     filecontext,
+                                                     filename))
     r.sadd('info:sha256:{}'.format(filesha256),
-           'ssdeep:{}:filename:{}'.format(filessdeep, filename))
+           'ssdeep:{}:context{}:filename:{}'.format(filessdeep,
+                                                    filecontext,
+                                                    filename))
     r.sadd("hashes:ssdeep", '{}'.format(filessdeep))
     r.sadd("names:filename", '{}'.format(filename))
+    r.sadd("contexts", '{}'.format(filecontext))
 
 
 def get_allsha256_for_ssdeep(ssdeep):
@@ -178,7 +192,7 @@ def get_allsha256_for_ssdeep(ssdeep):
     return allsha256
 
 
-def return_results(filename, filesha256, filessdeep):
+def return_results(filename, filesha256, filessdeep, filecontext):
     """The results should be in json. But the json.dumps function
     cannot deal with python sets, so we turn them into lists.
     additionally we retrieve other files with the same sha256 and,
@@ -187,6 +201,7 @@ def return_results(filename, filesha256, filessdeep):
     info['filename'] = filename
     info['sha256'] = filesha256
     info['ssdeep'] = filessdeep
+    info['context'] = filecontext
     info['other_filenames'] = [filenames.split(':')[-1]
                                for filenames in
                                r.smembers('info:sha256:{}'.format(filesha256))
@@ -206,7 +221,8 @@ def newhash(filesha256):
     return new
 
 
-# below we will have to do different things, depending on whether we load info,
+# below we will have to do different things
+# depending on whether we load info,
 # or have to generate the info ourselves.
 
 # call functions to get hashes
@@ -227,6 +243,7 @@ elif options.jason:
     # print('filesha256: ' + jasoninfo[2])
     filesha256 = jasoninfo[2]
 
+# The context switch is independent of the rest
 
 # XXX debug
 # print(filename)
@@ -240,24 +257,31 @@ elif options.jason:
 # get_allsha256_for_ssdeep. This is a bug
 if newhash(filesha256):
     filename = cleanname(filename)
-    add_info(filename, filesha256, filessdeep)
+    add_info(filename, filesha256, filessdeep, filecontext)
     ssdeep_compare = preprocess_ssdeep(filessdeep)
     for rolling_window_ssdeep in ssdeep_compare:
         ssdeep_sets = get_ssdeep_sets(rolling_window_ssdeep, filessdeep)
         add_ssdeep_to_rolling_window(rolling_window_ssdeep, filessdeep)
         for sibling_ssdeep in ssdeep_sets:
+            # Add sibling_ssdeep to the filessdeep
             r.zadd(filessdeep,
                    float(ssdeep.compare(sibling_ssdeep, filessdeep)),
-                   '{},"{}"'.format(sibling_ssdeep,
-                                    get_allsha256_for_ssdeep(sibling_ssdeep)))
+                   '{},{}'.format(sibling_ssdeep,
+                                  get_allsha256_for_ssdeep(sibling_ssdeep)))
+            # Add filessdeep to sibling_ssdeep
+            r.zadd(sibling_ssdeep,
+                   float(ssdeep.compare(filessdeep, sibling_ssdeep)),
+                   '{},{}'.format(filessdeep,
+                                  filesha256))
 
 # or else, add only the new info
 else:
     filename = cleanname(filename)
-    add_info(filename, filesha256, filessdeep)
+    add_info(filename, filesha256, filessdeep, filecontext)
 
 
-# return the result in json format if -v
-# if options.verbose:
-#    print(json.dumps(return_results(filename, filesha256, filessdeep),
-#          indent=4, sort_keys=True))
+# return the result in json format if verbose is set
+if options.verbose:
+    print(json.dumps(return_results(filename, filesha256,
+                                    filessdeep, filecontext),
+          indent=4, sort_keys=True))

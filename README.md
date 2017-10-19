@@ -2,22 +2,26 @@
 
 ## kathe.py store
 
-The storage function(s) add cross-linked info to redis: filename◀ ▶ssdeep◀ ▶sha256
+The storage function(s) add cross-linked info to redis: filename◀ ▶ssdeep◀ ▶sha256◀ ▶context.
 Additionally, unique lists of sha256 hashes,ssdeep hashes and filenames are created, to be able to access all info in
 the redis store.
+
+There are a number of "indexes" which can help you access all data:
 
 ```
 hashes:sha256
 hashes:ssdeep
 names:filenames
+contexts
 ```
 Besides the rolling_window keys, which you probably won't need, there are
-three additional key types you could use:
+four additional key types you could use:
 
 ```
 info:filename:<filename>
 info:sha256:<sha256>
 info:ssdeep:<ssdeep>
+info:context:<context>
 ```
 
 The real magic of the tool is hidden behind the simple keys with the name `<ssdeep hash>`.
@@ -25,7 +29,7 @@ These keys are a sorted set of (unique) elements with a score. The redis score h
 result of a `ssdeep_compare` between the "parent" ssdeep and any partially similar sddeep
 hash: "siblings".
 
-## accessing lists of all sha256/filename/ssdeep stored:
+## accessing lists of all sha256/filename/ssdeep/context stored:
 
 
 ### sha256 hashes
@@ -46,6 +50,12 @@ To get a list of all filenames of all stored info:
 
 ```bash
 smembers names:filename
+```
+
+To get a list of all contexts of all stored info:
+
+```bash
+smembers contexts
 ```
 
 ### filenames
@@ -103,7 +113,8 @@ splitting on '`:`' and getting field **3** (counting from zero).
 
 A filename can be any arbitrary identifying string. In these examples I'm using IP addresses
 as that makes sense for my use of the tool. Please feel free to abuse this field for any
-arbitrary identifying string (except for ssdeep or sha256, for obvious reasons).
+arbitrary identifying string (except for ssdeep or sha256, cause that would
+just be silly).
 
 To get information on a filename:
 
@@ -116,14 +127,27 @@ results. Format of the response:
 
 ```bash
 smembers info:filename:555.555.555.555
-1) "sha256:2c6fb8394912bf96f7117438cf047544ce14d47707ce0ecc623e391c68170f7d:ssdeep:3:BiLlavWRGXKKRFMRGXeWRGXKKRDXKReM8fdzkhBUeoITELUXE+LidzL:B+GaUTPGa3RBQVKBUlITEwXBiVL"
+1) "sha256:2c6fb8394912bf96f7117438cf047544ce14d47707ce0ecc623e391c68170f7d:ssdeep:3:BiLlavWRGXKK:B+GaUTPG"
 ```
 
 sha256 hashes always have the same format, so you can always access the ssdeep hash in this string by
 splitting on '`:`' and getting field **3,4,5** (counting from zero).
 
+### Particular context
+
+You will very likely want to know which files/ssdeeps/filenames appear in a
+certain context. That is why I added 'context' (and made it a **MUST**).
+
+Access to all the information is as simple as:
+
+```bash
+smembers info:context:honeydrops
+```
+
+## Workflow
 
 An example of a workflow:
+
 
 ```bash
 wc -l trap1ssbot.txt

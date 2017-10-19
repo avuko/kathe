@@ -3,6 +3,7 @@
 ## kathe.py store
 
 The storage function(s) add cross-linked info to redis: filename◀ ▶ssdeep◀ ▶sha256◀ ▶context.
+
 Additionally, unique lists of sha256 hashes,ssdeep hashes and filenames are created, to be able to access all info in
 the redis store.
 

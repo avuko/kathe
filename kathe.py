@@ -179,7 +179,7 @@ def add_info(filename, filesha256, filessdeep, context):
                                                     filename))
     r.sadd("hashes:ssdeep", '{}'.format(filessdeep))
     r.sadd("names:filename", '{}'.format(filename))
-    r.sadd("contexts", '{}'.format(filecontext))
+    r.sadd("names:context", '{}'.format(filecontext))
 
 
 def get_allsha256_for_ssdeep(ssdeep):

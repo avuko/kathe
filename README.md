@@ -12,9 +12,10 @@ There are a number of "indexes" which can help you access all data:
 ```
 hashes:sha256
 hashes:ssdeep
-names:filenames
-contexts
+names:filename
+names:context
 ```
+
 Besides the rolling_window keys, which you probably won't need, there are
 four additional key types you could use:
 

@@ -7,13 +7,13 @@ The storage function(s) add cross-linked info to redis: filename◀ ▶ssdeep◀
 Additionally, unique lists of sha256 hashes,ssdeep hashes and filenames are created, to be able to access all info in
 the redis store.
 
-There are a number of "indexes" which can help you access all data:
+There are a number of "Indeces" which can help you access all data:
 
 ```
-hashes:sha256
-hashes:ssdeep
-names:filename
-names:context
+(smembers) hashes:sha256
+(smembers) hashes:ssdeep
+(smembers) names:filename
+(smembers) names:context
 ```
 
 Besides the rolling_window keys, which you probably won't need, there are
@@ -148,7 +148,7 @@ smembers info:context:honeydrops
 
 ## Workflow
 
-An example of a workflow:
+### Workflow with a "json" file
 
 
 ```bash
@@ -165,3 +165,14 @@ user	12m3.477s
 sys	1m36.648s
 ```
 
+### Workflow with files
+
+```
+kathe⠠⠵ time find honeydrops/ -type f -exec ./kathe.py -c honeydrops -f {} \;
+real1m56.541s
+user1m44.280s
+sys0m9.012s
+
+kathe⠠⠵ ls			 honeydrops/ |wc -l
+829
+```

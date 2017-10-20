@@ -1,13 +1,18 @@
-# kathe.py
+# ssdeep correlation with kathe
 
-## kathe.py store
+## kathe.py
 
-The storage function(s) add cross-linked info to redis: filename◀ ▶ssdeep◀ ▶sha256◀ ▶context.
+`kathe.py` stores ssdeep hashes in Redis in such a way that relevant correlation
+(ssdeep compares) between all hashes is possible. Because the comparison is
+done during storage, retrieving all similar ssdeep hashes later is cheap.
 
-Additionally, unique lists of sha256 hashes,ssdeep hashes and filenames are created, to be able to access all info in
-the redis store.
+`kathe.py` also stores cross-linked info to redis: any of filename, ssdeep, sha256 and context has pointers to the other three.
 
-There are a number of "Indeces" which can help you access all data:
+
+
+Additionally, unique lists of sha256 hashes,ssdeep hashes, filenames and
+contexts are created. These lists function as "Indeces"which can help you
+access all data:
 
 ```
 (smembers) hashes:sha256
@@ -26,9 +31,8 @@ info:ssdeep:<ssdeep>
 info:context:<context>
 ```
 
-The real magic of the tool is hidden behind the simple keys with the name `<ssdeep hash>`.
-These keys are a sorted set of (unique) elements with a score. The redis score holds the
-result of a `ssdeep_compare` between the "parent" ssdeep and any partially similar sddeep
+The real magic of the tool is hidden behind the simple keys (scored sorted sets) with the name `<ssdeep hash>`.
+The redis score holds the result of a `ssdeep_compare` between the "parent" ssdeep and any partially similar sddeep
 hash: "siblings".
 
 ## accessing lists of all sha256/filename/ssdeep/context stored:
@@ -57,20 +61,20 @@ smembers names:filename
 To get a list of all contexts of all stored info:
 
 ```bash
-smembers contexts
+smembers names:contexts
 ```
 
 ### filenames
 
-To get information on a filename (to be precise: the "filename" field, as you can store
+To get information on a filename (more precise, the "filename" field, as you can store
 any identifying string there):
 
 ```bash
 smembers info:filename:<filename>
 ```
 
-Filenames are currently stripped of certain attributes before they are stored: `:`,`\`
-and `"`.
+Filenames are currently stripped of  `:`,`\` and `"` attributes
+before they are stored:
 
 ### Particular sha256 hash
 
@@ -114,8 +118,8 @@ splitting on '`:`' and getting field **3** (counting from zero).
 ### Particular filename
 
 A filename can be any arbitrary identifying string. In these examples I'm using IP addresses
-as that makes sense for my use of the tool. Please feel free to abuse this field for any
-arbitrary identifying string (except for ssdeep or sha256, cause that would
+as that makes sense for my a particular use of the tool. Please feel free to abuse this field for any
+arbitrary identifying string (except for ssdeep or sha256, as that would
 just be silly).
 
 To get information on a filename:
@@ -138,9 +142,9 @@ splitting on '`:`' and getting field **3,4,5** (counting from zero).
 ### Particular context
 
 You will very likely want to know which files/ssdeeps/filenames appear in a
-certain context. That is why I added 'context' (and made it a **MUST**).
+certain context. That is why I added 'context' (and made it a *MUST*).
 
-Access to all the information is as simple as:
+Access to all the info in a context is as simple as:
 
 ```bash
 smembers info:context:honeydrops
@@ -148,7 +152,7 @@ smembers info:context:honeydrops
 
 ## Workflow
 
-### Workflow with a "json" file
+### Workflow with a "json" line file
 
 
 ```bash
@@ -173,6 +177,7 @@ real1m56.541s
 user1m44.280s
 sys0m9.012s
 
-kathe⠠⠵ ls			 honeydrops/ |wc -l
+kathe⠠⠵ ls honeydrops/ |wc -l
 829
 ```
+

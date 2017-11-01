@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from datetime import datetime as dt
 from optparse import OptionParser
 import hashlib
 import json
@@ -9,7 +8,10 @@ import redis
 import secrets
 import ssdeep
 import sys
+import time
+import requests
 
+# You might need a secrets.py in this directory with api keys
 
 parser = OptionParser()
 parser.add_option("-c", "--context", dest="context", action='store',
@@ -23,8 +25,8 @@ parser.add_option("-r", "--redisdb", dest="redisdb", action='store',
 parser.add_option("-f", "--file", dest="filename", action='store',
                   type='string',  help="analyse a file.", metavar="FILE")
 parser.add_option("-t", "--virustotal", dest="virustotal", action='store',
-                  type='string', help="use virustotal as a source.",
-                  metavar="virustotal output")
+                  help="use hybrid-analysis json to use virustotal as source",
+                  metavar="file of hybrid-analysis feed in json output")
 parser.add_option("-j", "--json", dest="jason", action='store', type='string',
                   help="""use json formatted strings as source:
                   ["ssdeephash","some string","sha256"]
@@ -166,17 +168,17 @@ def add_info(filename, filesha256, filessdeep, context):
                                                    filessdeep,
                                                    filecontext))
     r.sadd('info:context:{}'.format(filecontext),
-           'sha256:{}:ssdeep{}:filename:{}'.format(filesha256,
-                                                   filessdeep,
-                                                   filename))
+           'sha256:{}:ssdeep:{}:filename:{}'.format(filesha256,
+                                                    filessdeep,
+                                                    filename))
     r.sadd('info:ssdeep:{}'.format(filessdeep),
            'sha256:{}:context:{}:filename:{}'.format(filesha256,
                                                      filecontext,
                                                      filename))
     r.sadd('info:sha256:{}'.format(filesha256),
-           'ssdeep:{}:context{}:filename:{}'.format(filessdeep,
-                                                    filecontext,
-                                                    filename))
+           'ssdeep:{}:context:{}:filename:{}'.format(filessdeep,
+                                                     filecontext,
+                                                     filename))
     r.sadd("hashes:ssdeep", '{}'.format(filessdeep))
     r.sadd("names:filename", '{}'.format(filename))
     r.sadd("names:context", '{}'.format(filecontext))
@@ -221,18 +223,101 @@ def newhash(filesha256):
     return new
 
 
+# use virustotal as as resource
+def vtgetinfo(apikey, resourcehash):
+    """ We can add virustotal info (I have requested ssdeep info in the api) into
+    our dataset. I don't have a private API, so I'm getting the hashes from
+    hybrid-analysis.com (which does allow us to get a feed of a number of days
+    back) and use their hashes as the input to query virustotal."""
+    print("waiting 15 seconds")
+    time.sleep(15)
+    print('getting info on {}'.format(resourcehash))
+    params = {'apikey': apikey, 'resource': resourcehash}
+    headers = {"Accept-Encoding": "gzip, deflate",
+               "User-Agent": "gzip, avuko"}
+    response = requests.get('https://www.virustotal.com/vtapi/v2/file/report?allinfo=true',
+                            params=params, headers=headers)
+    json_response = response.json()
+    return json_response
+
+
+def vtgetdetails(apikey, json_response):
+    if json_response['response_code'] is 1:
+        jason = json_response
+        for key in jason:
+            if str(key) == 'ssdeep':
+                if str(key) == 'submitname':
+                    details = (json.dumps(jason[u'submitname']),
+                               jason[u'sha256'], jason[u'ssdeep'])
+                else:
+                    details = (jason[u'md5'], jason[u'sha256'],
+                               jason[u'ssdeep'])
+        return(details)
+
+
+def addssdeeptodb(filename, filesha256, filessdeep, filecontext):
+    # If the file is new, add all information
+    # TODO The final zadd adds '"' to the sha256 hashes from
+    # get_allsha256_for_ssdeep. This is a bug
+    if newhash(filesha256):
+        filename = cleanname(filename)
+        add_info(filename, filesha256, filessdeep, filecontext)
+        ssdeep_compare = preprocess_ssdeep(filessdeep)
+        for rolling_window_ssdeep in ssdeep_compare:
+            ssdeep_sets = get_ssdeep_sets(rolling_window_ssdeep, filessdeep)
+            add_ssdeep_to_rolling_window(rolling_window_ssdeep, filessdeep)
+            for sibling_ssdeep in ssdeep_sets:
+                # Add sibling_ssdeep to the filessdeep
+                r.zadd(filessdeep,
+                       float(ssdeep.compare(sibling_ssdeep, filessdeep)),
+                       '{},{}'.format(sibling_ssdeep,
+                                      get_allsha256_for_ssdeep(sibling_ssdeep)))
+                # Add filessdeep to sibling_ssdeep
+                r.zadd(sibling_ssdeep,
+                       float(ssdeep.compare(filessdeep, sibling_ssdeep)),
+                       '{},{}'.format(filessdeep,
+                                      filesha256))
+
+    # or else, add only the new info
+    else:
+        filename = cleanname(filename)
+        add_info(filename, filesha256, filessdeep, filecontext)
+
+    # return the result in json format if verbose is set
+    if options.verbose:
+        print(json.dumps(return_results(filename, filesha256,
+                                        filessdeep, filecontext),
+              indent=4, sort_keys=True))
+
 # below we will have to do different things
 # depending on whether we load info,
 # or have to generate the info ourselves.
+
 
 # call functions to get hashes
 if options.filename:
     filename = options.filename
     filesha256 = file_sha256('{}'.format(filename))
     filessdeep = file_ssdeep('{}'.format(filename))
-    mtimestamp = dt.fromtimestamp(os.path.getmtime(filename)).isoformat()
+    # mtimestamp = dt.fromtimestamp(os.path.getmtime(filename)).isoformat()
+    addssdeeptodb(filename, filesha256, filessdeep, filecontext)
+
 elif options.virustotal:
     apikey = secrets.vt
+    with open(options.virustotal) as jsonfile:
+        jsonload = jsonfile.read()
+    jsondays = json.loads(jsonload)
+    jsondata = jsondays['data']
+    for resourcehash in jsondata[:]:
+        jsonresponse = vtgetinfo(apikey, resourcehash['sha256'])
+        details = vtgetdetails(apikey, jsonresponse)
+        if details:
+            print(details)
+            filename = details[0]
+            filesha256 = details[1]
+            filessdeep = details[2]
+            addssdeeptodb(filename, filesha256, filessdeep, filecontext)
+
 
 elif options.jason:
     jasoninfo = json.loads(options.jason)
@@ -242,6 +327,7 @@ elif options.jason:
     # print('filename: ' + filename)
     # print('filesha256: ' + jasoninfo[2])
     filesha256 = jasoninfo[2]
+    addssdeeptodb(filename, filesha256, filessdeep, filecontext)
 
 # The context switch is independent of the rest
 
@@ -250,38 +336,3 @@ elif options.jason:
 # print(filesha256)
 # print(filessdeep)
 # print(r.smembers('hashes:sha256'))
-
-
-# If the file is new, add all information
-# TODO The final zadd adds '"' to the sha256 hashes from
-# get_allsha256_for_ssdeep. This is a bug
-if newhash(filesha256):
-    filename = cleanname(filename)
-    add_info(filename, filesha256, filessdeep, filecontext)
-    ssdeep_compare = preprocess_ssdeep(filessdeep)
-    for rolling_window_ssdeep in ssdeep_compare:
-        ssdeep_sets = get_ssdeep_sets(rolling_window_ssdeep, filessdeep)
-        add_ssdeep_to_rolling_window(rolling_window_ssdeep, filessdeep)
-        for sibling_ssdeep in ssdeep_sets:
-            # Add sibling_ssdeep to the filessdeep
-            r.zadd(filessdeep,
-                   float(ssdeep.compare(sibling_ssdeep, filessdeep)),
-                   '{},{}'.format(sibling_ssdeep,
-                                  get_allsha256_for_ssdeep(sibling_ssdeep)))
-            # Add filessdeep to sibling_ssdeep
-            r.zadd(sibling_ssdeep,
-                   float(ssdeep.compare(filessdeep, sibling_ssdeep)),
-                   '{},{}'.format(filessdeep,
-                                  filesha256))
-
-# or else, add only the new info
-else:
-    filename = cleanname(filename)
-    add_info(filename, filesha256, filessdeep, filecontext)
-
-
-# return the result in json format if verbose is set
-if options.verbose:
-    print(json.dumps(return_results(filename, filesha256,
-                                    filessdeep, filecontext),
-          indent=4, sort_keys=True))

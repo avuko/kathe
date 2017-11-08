@@ -25,7 +25,7 @@ parser.add_option("-r", "--redisdb", dest="redisdb", action='store',
 parser.add_option("-f", "--file", dest="filename", action='store',
                   type='string',  help="analyse a file.", metavar="FILE")
 parser.add_option("-t", "--virustotal", dest="virustotal", action='store',
-                  help="use hybrid-analysis json to use virustotal as source",
+                  help="use hybrid-analysis to use virustotal as a source",
                   metavar="file of hybrid-analysis feed in json output")
 parser.add_option("-j", "--json", dest="jason", action='store', type='string',
                   help="""use json formatted strings as source:
@@ -57,7 +57,7 @@ else:
 
 # Connect to redis.
 # Also, convert all responses to strings, not bytes
-r = redis.StrictRedis('localhost', 6379, charset="utf-8",
+r = redis.StrictRedis('localhost', 6379, db=redisdbnr, charset="utf-8",
                       decode_responses=True)
 
 
@@ -250,15 +250,13 @@ def vtgetdetails(apikey, json_response):
                     details = (json.dumps(jason[u'submitname']),
                                jason[u'sha256'], jason[u'ssdeep'])
                 else:
-                    details = (jason[u'md5'], jason[u'sha256'],
-                               jason[u'ssdeep'])
-        return(details)
+                    details = (jason[u'md5'],
+                               jason[u'sha256'], jason[u'ssdeep'])
+                return(details)
 
 
 def addssdeeptodb(filename, filesha256, filessdeep, filecontext):
     # If the file is new, add all information
-    # TODO The final zadd adds '"' to the sha256 hashes from
-    # get_allsha256_for_ssdeep. This is a bug
     if newhash(filesha256):
         filename = cleanname(filename)
         add_info(filename, filesha256, filessdeep, filecontext)
@@ -299,7 +297,6 @@ if options.filename:
     filename = options.filename
     filesha256 = file_sha256('{}'.format(filename))
     filessdeep = file_ssdeep('{}'.format(filename))
-    # mtimestamp = dt.fromtimestamp(os.path.getmtime(filename)).isoformat()
     addssdeeptodb(filename, filesha256, filessdeep, filecontext)
 
 elif options.virustotal:
@@ -316,23 +313,12 @@ elif options.virustotal:
             filename = details[0]
             filesha256 = details[1]
             filessdeep = details[2]
-            addssdeeptodb(filename, filesha256, filessdeep, filecontext)
-
+            if filessdeep:
+                addssdeeptodb(filename, filesha256, filessdeep, filecontext)
 
 elif options.jason:
     jasoninfo = json.loads(options.jason)
-    # print('filessdeep: ' + jasoninfo[0])
     filessdeep = jasoninfo[0]
     filename = jasoninfo[1]
-    # print('filename: ' + filename)
-    # print('filesha256: ' + jasoninfo[2])
     filesha256 = jasoninfo[2]
     addssdeeptodb(filename, filesha256, filessdeep, filecontext)
-
-# The context switch is independent of the rest
-
-# XXX debug
-# print(filename)
-# print(filesha256)
-# print(filessdeep)
-# print(r.smembers('hashes:sha256'))

@@ -1,35 +1,37 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 from optparse import OptionParser
 import hashlib
 import json
 import os
-import re
 import redis
 import secrets
 import ssdeep
 import sys
 import time
 import requests
+import csv
+from datetime import datetime
+import unicodedata
 
 # You might need a secrets.py in this directory with api keys
 
 parser = OptionParser()
 parser.add_option("-c", "--context", dest="context", action='store',
                   type='string',
-                  help="Always add context. E.g.: \"spam\" or \"honeydrops\"",
+                  help="context (comma separated).  E.g.: 'win.isfb,malpedia,2018-01-01'\nMake sure the most important context (in this example the malware family)\nis the first one in the list.",
                   metavar="REQUIRED")
-parser.add_option("-r", "--redisdb", dest="redisdb", action='store',
+parser.add_option("-r", "--redisdb", dest="redisdb", action="store",
                   type='int',
-                  help="select the redisdb #. to store in. defaults to 0",
-                  metavar="0")
+                  help='select the redisdb #. to store in. defaults to 14',
+                  metavar="14")
 parser.add_option("-f", "--file", dest="filename", action='store',
                   type='string',  help="analyse a file.", metavar="FILE")
-parser.add_option("-t", "--virustotal", dest="virustotal", action='store',
-                  help="use hybrid-analysis to use virustotal as a source",
-                  metavar="file of hybrid-analysis feed in json output")
+parser.add_option("-i", "--csv", dest="csvfile", action='store',
+                  type='string',  help="import a csv", metavar="FILE")
 parser.add_option("-j", "--json", dest="jason", action='store', type='string',
-                  help="""use json formatted strings as source:
-                  ["ssdeephash","some string","sha256"]
+                  help="""use json formatted strings (per line) as source:
+                  ["ssdeephash","identifying name","sha256"]
                   cat json|while read line; do ./kathe.py -j "${line}";done""",
                   metavar="JSON input")
 parser.add_option("-v", "--verbose", action="store_true", help="print results")
@@ -39,8 +41,8 @@ parser.add_option("-v", "--verbose", action="store_true", help="print results")
 
 # Ugly way to check you are actually giving us to work
 # with.
-if options.filename is None and options.virustotal is None\
- and options.jason is None or options.context is None:
+if options.filename is None and options.jason is None\
+ and options.csvfile is None or options.context is None:
     print(parser.error("Missing options, see " + sys.argv[0] + " -h"))
 
 
@@ -49,11 +51,11 @@ filename = None
 filessdeep = None
 filesha256 = None
 
-# By default, store in Redis db 0.
+# By default, store in Redis db 14.
 if options.redisdb:
     redisdbnr = options.redisdb
 else:
-    redisdbnr = 0
+    redisdbnr = 14
 
 # Connect to redis.
 # Also, convert all responses to strings, not bytes
@@ -61,21 +63,38 @@ r = redis.StrictRedis('localhost', 6379, db=redisdbnr, charset="utf-8",
                       decode_responses=True)
 
 
+def timestamp():
+    ts = int(datetime.now().strftime("%s")+str(datetime.now().microsecond))
+    yield ts
+
+
+def blacklist_chars(inputstring):
+    inputstring.replace(':', '').replace('\\', '').replace('"', '')
+    inputstring.replace('\'', '').replace('|', '').replace(' ', '')
+    return inputstring
+
+def remove_control_characters(s):
+    return "".join(ch for ch in s if unicodedata.category(ch)[0]!="C")
+
 def cleancontext(contextstring):
-    """Remove all but 0-9 and a-z from the context option.
+    """Remove all troublesome characters from the context option.
     We need to do this to make splitting the strings by
     other tools reliable."""
-    pattern = re.compile('[\W_]+')
-    cleancontextstring = pattern.sub('', contextstring)
+    cleancontextstring = contextstring.replace(':', '').replace('\\', '').replace('"', '').replace('\'', '').replace('|', '').replace(' ', '')
+    # make string splitable on pipe symbol and turn to lowercase
+    cleancontextstring = cleancontextstring.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
+    cleancontextstring = cleancontextstring.replace(',', '|').lower()
+    cleancontextstring = remove_control_characters(cleancontextstring)
     return cleancontextstring
 
 
-# Making sure the context string doesn't ruin a perfectly
+# Making sure the context string doesn't destroy a perfectly
 # beautiful string. Also, last ditch protection with NONE.
 if options.context:
-    filecontext = cleancontext(options.context)
+    filecontext = options.context
 else:
     filecontext = 'NONE'
+
 
 
 def cleanname(filename):
@@ -83,9 +102,14 @@ def cleanname(filename):
     which could cause issues with stringparsing.
     Stringing together '.replace' seems the fastest way
     to do this: https://stackoverflow.com/a/27086669"""
+    # XXX in the case of directories, we'd want dirnames etc.
     cleanname = os.path.basename(filename)
-    cleanname = cleanname.replace(':', '').replace('\\', '').replace('"', '')
-    return cleanname
+    cleanname = cleanname.replace(':', '').replace('\\', '').replace('"', '').replace('\'', '').replace('|', '').replace(' ', '')
+    cleanname = cleanname.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
+    cleanname = remove_control_characters(cleanname)
+    cleanname = cleanname.replace(',', '|').lower()
+    cleanname = cleanname.replace(',', '').lower()
+    return (cleanname)
 
 
 # buffered file reading sha256
@@ -159,18 +183,17 @@ def add_ssdeep_to_rolling_window(rolling_window_ssdeep, filessdeep):
     r.sadd(rolling_window_ssdeep, filessdeep)
 
 
-def add_info(filename, filesha256, filessdeep, context):
+def add_info(filename, filesha256, filessdeep, filecontext):
     """The four info fields contain a set (read: unique) of information
     about the added entity. This way sha256/filename/filessdeep are
     linked and retrievable."""
+    filecontext = cleancontext(filecontext)
+    splitcontext = filecontext.split('|')
+
     r.sadd('info:filename:{}'.format(filename),
            'sha256:{}:ssdeep:{}:context:{}'.format(filesha256,
                                                    filessdeep,
                                                    filecontext))
-    r.sadd('info:context:{}'.format(filecontext),
-           'sha256:{}:ssdeep:{}:filename:{}'.format(filesha256,
-                                                    filessdeep,
-                                                    filename))
     r.sadd('info:ssdeep:{}'.format(filessdeep),
            'sha256:{}:context:{}:filename:{}'.format(filesha256,
                                                      filecontext,
@@ -181,17 +204,36 @@ def add_info(filename, filesha256, filessdeep, context):
                                                      filename))
     r.sadd("hashes:ssdeep", '{}'.format(filessdeep))
     r.sadd("names:filename", '{}'.format(filename))
-    r.sadd("names:context", '{}'.format(filecontext))
+    for singlecontext in splitcontext:
+        r.sadd("names:context", '{}'.format(singlecontext))
+        r.sadd('info:context:{}'.format(singlecontext),
+               'sha256:{}:ssdeep:{}:filename:{}:filecontext:{}'.format(filesha256,
+                                                                       filessdeep,
+                                                                       filename,
+                                                                       filecontext))
+    r.set("timestamp", timestamp())
 
 
 def get_allsha256_for_ssdeep(ssdeep):
     """function which retrieves a string of unique sha256 hashes for
     an ssdeep hash. Theoretically a single ssdeep hash could match multiple
     different files, if the differences are insignificant."""
-    allsha256 = [allsha256.split(':')[1]
-                 for allsha256 in r.smembers('info:ssdeep:{}'.format(ssdeep))]
-    allsha256 = str.join(':', set(allsha256))
-    return allsha256
+    allsha256s = [allsha256.split(':')[1]
+                  for allsha256 in r.smembers('info:ssdeep:{}'.format(ssdeep))]
+    allsha256s = str.join(':', set(allsha256s))
+    # print(allsha256s)
+    return allsha256s
+
+
+def get_allcontext_for_ssdeep(ssdeep):
+    """function which retrieves a string of unique context strings for
+    an ssdeep hash. Theoretically a single ssdeep hash could match multiple
+    different contexts, based on how they are added to the dataset."""
+    allcontexts = [allcontext.split(':')[3]
+                   for allcontext in r.smembers('info:ssdeep:{}'.format(ssdeep))]
+    allcontexts = str.join(':', set(allcontexts))
+    # print(allcontexts)
+    return allcontexts
 
 
 def return_results(filename, filesha256, filessdeep, filecontext):
@@ -223,38 +265,6 @@ def newhash(filesha256):
     return new
 
 
-# use virustotal as as resource
-def vtgetinfo(apikey, resourcehash):
-    """ We can add virustotal info (I have requested ssdeep info in the api) into
-    our dataset. I don't have a private API, so I'm getting the hashes from
-    hybrid-analysis.com (which does allow us to get a feed of a number of days
-    back) and use their hashes as the input to query virustotal."""
-    print("waiting 15 seconds")
-    time.sleep(15)
-    print('getting info on {}'.format(resourcehash))
-    params = {'apikey': apikey, 'resource': resourcehash}
-    headers = {"Accept-Encoding": "gzip, deflate",
-               "User-Agent": "gzip, avuko"}
-    response = requests.get('https://www.virustotal.com/vtapi/v2/file/report?allinfo=true',
-                            params=params, headers=headers)
-    json_response = response.json()
-    return json_response
-
-
-def vtgetdetails(apikey, json_response):
-    if json_response['response_code'] is 1:
-        jason = json_response
-        for key in jason:
-            if str(key) == 'ssdeep':
-                if str(key) == 'submitname':
-                    details = (json.dumps(jason[u'submitname']),
-                               jason[u'sha256'], jason[u'ssdeep'])
-                else:
-                    details = (jason[u'md5'],
-                               jason[u'sha256'], jason[u'ssdeep'])
-                return(details)
-
-
 def addssdeeptodb(filename, filesha256, filessdeep, filecontext):
     # If the file is new, add all information
     if newhash(filesha256):
@@ -268,13 +278,14 @@ def addssdeeptodb(filename, filesha256, filessdeep, filecontext):
                 # Add sibling_ssdeep to the filessdeep
                 r.zadd(filessdeep,
                        float(ssdeep.compare(sibling_ssdeep, filessdeep)),
-                       '{},{}'.format(sibling_ssdeep,
-                                      get_allsha256_for_ssdeep(sibling_ssdeep)))
+                       '{},{},{}'.format(sibling_ssdeep,
+                                         get_allsha256_for_ssdeep(sibling_ssdeep),
+                                         get_allcontext_for_ssdeep(sibling_ssdeep)))
                 # Add filessdeep to sibling_ssdeep
                 r.zadd(sibling_ssdeep,
                        float(ssdeep.compare(filessdeep, sibling_ssdeep)),
-                       '{},{}'.format(filessdeep,
-                                      filesha256))
+                       '{},{},{}'.format(filessdeep,
+                                         filesha256, filecontext.replace(',','|')))
 
     # or else, add only the new info
     else:
@@ -299,26 +310,51 @@ if options.filename:
     filessdeep = file_ssdeep('{}'.format(filename))
     addssdeeptodb(filename, filesha256, filessdeep, filecontext)
 
-elif options.virustotal:
-    apikey = secrets.vt
-    with open(options.virustotal) as jsonfile:
-        jsonload = jsonfile.read()
-    jsondays = json.loads(jsonload)
-    jsondata = jsondays['data']
-    for resourcehash in jsondata[:]:
-        jsonresponse = vtgetinfo(apikey, resourcehash['sha256'])
-        details = vtgetdetails(apikey, jsonresponse)
-        if details:
-            print(details)
-            filename = details[0]
-            filesha256 = details[1]
-            filessdeep = details[2]
-            if filessdeep:
-                addssdeeptodb(filename, filesha256, filessdeep, filecontext)
+# elif options.virustotal:
+#     apikey = secrets.vt
+#     with open(options.virustotal) as jsonfile:
+#         jsonload = jsonfile.read()
+#     jsondays = json.loads(jsonload)
+#     jsondata = jsondays['data']
+#     for resourcehash in jsondata[:]:
+#         jsonresponse = vtgetinfo(apikey, resourcehash['sha256'])
+#         details = vtgetdetails(apikey, jsonresponse)
+#         if details:
+#             # print(details)
+#             filename = details[0]
+#             filesha256 = details[1]
+#             filessdeep = details[2]
+#             if filessdeep:
+#                 addssdeeptodb(filename, filesha256, filessdeep, filecontext)
 
 elif options.jason:
-    jasoninfo = json.loads(options.jason)
+    jasonstring = options.jason
+    print(jasonstring)
+    jasoninfo = json.loads(jasonstring)
     filessdeep = jasoninfo[0]
     filename = jasoninfo[1]
     filesha256 = jasoninfo[2]
     addssdeeptodb(filename, filesha256, filessdeep, filecontext)
+
+elif options.csvfile:
+    csvfile = options.csvfile
+    with open(csvfile) as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            csvcontext = []
+            if row['ssdeep'] and row['sha256']:
+                if row['filename'] is '':
+                    row['filename'] = row['sha256']
+                elif row['context0'] is '':
+                    row['context0'] = 'unknown_type'
+                    csvcontext.append(cleancontext(row['context0']))
+                elif row['context1'] is not '':
+                    csvcontext[0:0] = [cleancontext(row['context1'])]
+                clicontexts = cleancontext(options.context).split('|')
+                for clicontext in clicontexts:
+                    if clicontext is not '':
+                        csvcontext.append(clicontext)
+                #print(csvcontext)
+                # filecontext = ','(csvcontext)
+                # addssdeeptodb(cleanname(row['filename']), row['sha256'], row['ssdeep'], filecontext)
+                print(cleanname(row['filename']), row['sha256'], row['ssdeep'], '|'.join(csvcontext))

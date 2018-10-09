@@ -6,14 +6,21 @@ import math
 import urllib.parse
 import ast
 import bottle_redis as redis
+import sys
 
 MYHOST = '127.0.0.1'
 MYHOST = '0.0.0.0'
 
-REDISDB = 1 
-SORTED_SET_LIMIT = 512
-CONTEXT_SET_LIMIT = 256
+try:
+    REDISDB = sys.argv[1]
+except:
+    REDISDB = 13
 
+SORTED_SET_LIMIT = 16
+CONTEXT_SET_LIMIT = 64
+print('using database #{}'.format(REDISDB))
+
+## export svgs with http://nytimes.github.io/svg-crowbar/ (works in chrome)
 
 # XXX testing
 # import json

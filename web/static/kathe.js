@@ -15,6 +15,7 @@ var svg = d3.select(chartDiv)
 // https://coderwall.com/p/psogia/simplest-way-to-add-zoom-pan-on-d3-js
   .attr("width", width)
   .attr("height", height)
+  .attr("id", 'kathe')
   .call(d3.zoom()
     .scaleExtent([1, 2])
     // because we dont have "click", we have this :/
@@ -29,8 +30,8 @@ var color = d3.scaleOrdinal(d3.schemeCategory20);
 
 var simulation = d3.forceSimulation()
   .force("link", d3.forceLink().id(function(d) { return d.id; })
-    .distance(function (d) {return ((100/d.value)*40)}).strength(0.1))
-  .force("charge", d3.forceManyBody().strength(-20))
+    .distance(function (d) {return ((100/d.value)*40)}).strength(0.005))
+  .force("charge", d3.forceManyBody().strength(-200))
   .alphaTarget(0.1)
   .force("x", d3.forceX(width / 2).strength(0.065))
   .force("y", d3.forceY(height / 2).strength(0.065))
@@ -70,7 +71,15 @@ d3.json("/search/?search=" + unescaped_searchvalue, function(error, graph) {
     .attr("stroke-width", function(d) { return 10/(100/d.value); });
 
   link.append("title")
-    .text(function(d) { return "sssdeep_compare: " + d.value; });
+     .text(function(d) { return "ssdeep_compare: " + d.value; });
+  // link.append("textPath") //append a textPath to the text element
+   	// .attr("xlink:href", "#wavy") //place the ID of the path here
+   	// .style("text-anchor","middle") //place the text halfway on the arc
+   	// .attr("startOffset", "50%")
+    	// .text("Yay, my text is on a wavy path");
+    // .text(function(d) { return d.value; });
+
+
 
   link.on("mouseover", function(d){
     d3.select(this).style('stroke', '#900');

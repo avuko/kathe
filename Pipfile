@@ -9,6 +9,7 @@ verify_ssl = true
 redis = "<=3.*"
 bottle-redis = "*"
 bottle = "*"
+ssdeep = "*"
 
 [requires]
 python_version = "3.6"

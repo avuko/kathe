@@ -16,7 +16,13 @@ except ImportError:
 try:
     import ssdeep
 except ImportError:
-    print('apt install python3-ssdeep')
+    """
+    if you get errors during the installation process, install these:
+    sudo apt-get install python3 python-dev python3-dev build-essential libssl-dev 
+    libffi-dev libxml2-dev libxslt1-dev zlib1g-dev python-pip libfuzzy-dev
+    """
+    print('pip install ssdeep') 
+    #print('apt install python3-ssdeep')
     exit(1)
 
 
@@ -231,7 +237,7 @@ def add_info(filename, filesha256, filessdeep, filecontext):
         # add unique key to set with 'incr 1' to keep track of occurance
         # and create a ranked set. Rank may chance over time, but that
         # is not a problem when updates do not happen inbetween calls
-        r.zincrby("names:context", '{}'.format(singlecontext), amount=1)
+        r.zincrby('names:context', '{}'.format(singlecontext), 1)
         info_string = 'sha256:{}:ssdeep:{}:filename:{}:filecontext:{}'
         r.sadd('info:context:{}'.format(singlecontext),
                info_string.format(filesha256,

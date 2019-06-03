@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import redis
-REDISDB = 3
+REDISDB = 13
 rdb = redis.StrictRedis(host='localhost', db=REDISDB, decode_responses=True)
 
 cachemembers = rdb.smembers('cachecontrol')

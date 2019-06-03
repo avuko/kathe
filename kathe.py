@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# XXX replace 'file' with 'input', unless it is about files.
 from optparse import OptionParser
 from datetime import datetime
 import csv
@@ -8,6 +9,7 @@ import json
 import os
 import sys
 import unicodedata
+import secrets
 try:
     import redis
 except ImportError:
@@ -18,7 +20,6 @@ try:
 except ImportError:
     print('apt install python3-ssdeep')
     exit(1)
-
 
 # XXX clean up order of functions etc, do __main__ to prevent cli stuff
 
@@ -41,7 +42,7 @@ parser.add_option("-i", "--csv", dest="csvfile", action='store',
                   type='string',  help="import a csv", metavar="FILE")
 parser.add_option("-j", "--json", dest="jason", action='store', type='string',
                   help="""use json formatted strings (per line) as source:
-                  ["ssdeephash","identifying name","sha256"]
+                  ["ssdeephash","name","sha256"]
                   cat json|while read line; do ./kathe.py -j "${line}";done""",
                   metavar="JSON input")
 parser.add_option("-v", "--verbose", action="store_true", help="print results")
@@ -56,13 +57,13 @@ if options.filename is None and options.jason is None\
 
 
 # To start with, set all to None.
-filename = None
-filessdeep = None
-filesha256 = None
+inputname = None
+inputssdeep = None
+inputsha256 = None
 if options.context:
-    filecontext = options.context
+    inputcontext = options.context
 else:
-    filecontext = 'None'
+    inputcontext = 'None'
 
 # By default, store in Redis db 14.
 if options.redisdb:
@@ -74,7 +75,8 @@ else:
 # Also, convert all responses to strings, not bytes
 r = redis.StrictRedis('localhost', 6379, db=redisdbnr, charset="utf-8",
                       decode_responses=True)
-
+# connect to neo4j.
+# graph = Graph(secrets.neo4jurl, auth=(secrets.neo4juser, secrets.neo4jpass))
 
 def timestamp():
     ts = int(datetime.now().strftime("%s")+str(datetime.now().microsecond))
@@ -124,22 +126,22 @@ def clean_name(filename):
 
 
 # buffered file reading sha256
-def file_sha256(filename):
+def file_sha256(inputname):
     """returns the sha256 hash of a file buffered,
     so memory isn't swamped when dealing with large files."""
     h = hashlib.sha256()
-    with open(filename, 'rb', buffering=0) as f:
+    with open(inputname, 'rb', buffering=0) as f:
         for b in iter(lambda: f.read(128*1024), b''):
             h.update(b)
     return h.hexdigest()
 
 
 # buffered file reading ssdeep
-def file_ssdeep(filename):
+def file_ssdeep(inputname):
     """returns the ssdeep hash of a file buffered,
     so memory isn't swamped when dealing with large files."""
     h = ssdeep.Hash()
-    with open(filename, 'rb', buffering=0) as f:
+    with open(inputname, 'rb', buffering=0) as f:
         for b in iter(lambda: f.read(128*1024), b''):
             h.update(b)
     return h.digest()
@@ -179,49 +181,49 @@ def preprocess_ssdeep(h):
     return h_rolling_window
 
 
-def get_ssdeep_sets(rolling_window_ssdeep, filessdeep):
+def get_ssdeep_sets(rolling_window_ssdeep, inputssdeep):
     """ create a set of ssdeep hashes matching filesssdeep
     from the rolling_window set, which does not contain
-    filessdeep hash itself. Using '.discard' to silently
-    return without filessdeep."""
+    inputssdeep hash itself. Using '.discard' to silently
+    return without inputssdeep."""
     siblings_set = r.smembers(rolling_window_ssdeep)
-    siblings_set.discard(filessdeep)
+    siblings_set.discard(inputssdeep)
     return siblings_set
 
 
-def add_ssdeep_to_rolling_window(rolling_window_ssdeep, filessdeep):
-    """This function adds the filessdeep hash to all the matching
+def add_ssdeep_to_rolling_window(rolling_window_ssdeep, inputssdeep):
+    """This function adds the inputssdeep hash to all the matching
     rolling_windows."""
-    r.sadd(rolling_window_ssdeep, filessdeep)
+    r.sadd(rolling_window_ssdeep, inputssdeep)
 
 
-def add_info(filename, filesha256, filessdeep, filecontext):
+def add_info(inputname, inputsha256, inputssdeep, inputcontext):
     """The four info fields contain a set (read: unique) of information
-    about the added entity. This way sha256/filename/filessdeep are
+    about the added entity. This way sha256/inputname/inputssdeep are
     linked and retrievable."""
-    filecontext = clean_context(filecontext)
-    splitcontext = filecontext.split('|')
+    inputcontext = clean_context(inputcontext)
+    splitcontext = inputcontext.split('|')
 
-    r.sadd('info:filename:{}'.format(filename),
-           'sha256:{}:ssdeep:{}:context:{}'.format(filesha256,
-                                                   filessdeep,
-                                                   filecontext))
-    r.sadd('info:ssdeep:{}'.format(filessdeep),
-           'sha256:{}:context:{}:filename:{}'.format(filesha256,
-                                                     filecontext,
-                                                     filename))
-    r.sadd('info:sha256:{}'.format(filesha256),
-           'ssdeep:{}:context:{}:filename:{}'.format(filessdeep,
-                                                     filecontext,
-                                                     filename))
-    r.sadd("hashes:ssdeep", '{}'.format(filessdeep))
-    r.sadd("names:filename", '{}'.format(filename))
+    r.sadd('info:inputname:{}'.format(inputname),
+           'sha256:{}:ssdeep:{}:context:{}'.format(inputsha256,
+                                                   inputssdeep,
+                                                   inputcontext))
+    r.sadd('info:ssdeep:{}'.format(inputssdeep),
+           'sha256:{}:context:{}:inputname:{}'.format(inputsha256,
+                                                     inputcontext,
+                                                     inputname))
+    r.sadd('info:sha256:{}'.format(inputsha256),
+           'ssdeep:{}:context:{}:inputname:{}'.format(inputssdeep,
+                                                     inputcontext,
+                                                     inputname))
+    r.sadd("hashes:ssdeep", '{}'.format(inputssdeep))
+    r.sadd("names:inputname", '{}'.format(inputname))
     # pull all most significant contexts from an ssdeep and, if they are
     # different, add the combined names to splitcontext for inclusion in
     # "names:context".
     # Because the ssdeeps are similar, this will make different naming
     # schemes explicit.
-    for contexts in r.smembers('info:ssdeep:{}'.format(filessdeep)):
+    for contexts in r.smembers('info:ssdeep:{}'.format(inputssdeep)):
         context = contexts.split(':')[3].split('|')[0]
         if context != splitcontext[0]:
             context = '/'.join(sorted([context, splitcontext[0]]))
@@ -232,13 +234,15 @@ def add_info(filename, filesha256, filessdeep, filecontext):
         # and create a ranked set. Rank may chance over time, but that
         # is not a problem when updates do not happen inbetween calls
         r.zincrby("names:context", '{}'.format(singlecontext), amount=1)
-        info_string = 'sha256:{}:ssdeep:{}:filename:{}:filecontext:{}'
+        info_string = 'sha256:{}:ssdeep:{}:inputname:{}:inputcontext:{}'
         r.sadd('info:context:{}'.format(singlecontext),
-               info_string.format(filesha256,
-                                  filessdeep, filename, filecontext))
-    # timestamp is used for caching of query results. It is updated after every
-    # addition so it never goes stale.
+               info_string.format(inputsha256,
+                                  inputssdeep, inputname, inputcontext))
+    # timestamp is used for caching of query results. It is updated after
+    # every addition so it never goes stale.
+    print(timestamp())
     r.set("timestamp", timestamp())
+    print(r.get("timestamp"))
 
 
 def get_allsha256_for_ssdeep(ssdeep):
@@ -264,92 +268,95 @@ def get_allcontext_for_ssdeep(ssdeep):
     return allcontexts
 
 
-def return_results(filename, filesha256, filessdeep, filecontext):
+def return_results(inputname, inputsha256, inputssdeep, inputcontext):
     """The results should be in json. But the json.dumps function
     cannot deal with python sets, so we turn them into lists.
     additionally we retrieve other files with the same sha256 and,
     last but not least, it siblings (partially matching ssdeep hashes)."""
     info = dict()
-    info['filename'] = filename
-    info['sha256'] = filesha256
-    info['ssdeep'] = filessdeep
-    info['context'] = filecontext
-    info['other_filenames'] = [filenames.split(':')[-1]
-                               for filenames in
-                               r.smembers('info:sha256:{}'.format(filesha256))
-                               if filenames.split(':')[-1] not in filename]
-    info['siblings'] = list(r.zrangebyscore(filessdeep, min=0,
+    info['inputname'] = inputname
+    info['sha256'] = inputsha256
+    info['ssdeep'] = inputssdeep
+    info['context'] = inputcontext
+    info['other_inputnames'] = [inputnames.split(':')[-1]
+                               for inputnames in
+                               r.smembers('info:sha256:{}'.format(inputsha256))
+                               if inputnames.split(':')[-1] not in inputname]
+    info['siblings'] = list(r.zrangebyscore(inputssdeep, min=0,
                             max='+inf', withscores=True))
     return(info)
 
 
-def new_hash(filesha256):
+def new_hash(inputsha256):
     """ To speed things up, we take a different path if the file is already known.
     return True if new, False if the hash is already known."""
-    if r.sismember("hashes:sha256", '{}'.format(filesha256)):
+    if r.sismember("hashes:sha256", '{}'.format(inputsha256)):
         new = False
     else:
         new = True
     return new
 
 
-def add_ssdeep_to_db(filename, filesha256, filessdeep, filecontext):
+def add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext):
     # If the file is new, add all information
-    if new_hash(filesha256):
-        filename = clean_name(filename)
-        r.sadd("hashes:sha256", '{}'.format(filesha256))
-        add_info(filename, filesha256, filessdeep, filecontext)
-        ssdeep_compare = preprocess_ssdeep(filessdeep)
+    if new_hash(inputsha256):
+        inputname = clean_name(inputname)
+        r.sadd("hashes:sha256", '{}'.format(inputsha256))
+        add_info(inputname, inputsha256, inputssdeep, inputcontext)
+        ssdeep_compare = preprocess_ssdeep(inputssdeep)
         for rolling_window_ssdeep in ssdeep_compare:
-            ssdeep_sets = get_ssdeep_sets(rolling_window_ssdeep, filessdeep)
-            add_ssdeep_to_rolling_window(rolling_window_ssdeep, filessdeep)
+            ssdeep_sets = get_ssdeep_sets(rolling_window_ssdeep, inputssdeep)
+            add_ssdeep_to_rolling_window(rolling_window_ssdeep, inputssdeep)
             for sibling_ssdeep in ssdeep_sets:
-                # Add sibling_ssdeep to the filessdeep
+                # Add sibling_ssdeep to the inputssdeep
                 # XXX maybe add zscore check to optimise away the compare
                 st = '{},{},{}'
-                r.zadd(filessdeep,
-                       float(ssdeep.compare(sibling_ssdeep, filessdeep)),
+                r.zadd(inputssdeep,
+                       float(ssdeep.compare(sibling_ssdeep, inputssdeep)),
                        st.format(sibling_ssdeep,
                                  get_allsha256_for_ssdeep(sibling_ssdeep),
                                  get_allcontext_for_ssdeep(sibling_ssdeep)))
-                # Add filessdeep to sibling_ssdeep
+                # Add inputssdeep to sibling_ssdeep
                 r.zadd(sibling_ssdeep,
-                       float(ssdeep.compare(filessdeep, sibling_ssdeep)),
-                       st.format(filessdeep,
-                                 filesha256,
-                                 filecontext.replace(',', '|')))
+                       float(ssdeep.compare(inputssdeep, sibling_ssdeep)),
+                       st.format(inputssdeep,
+                                 inputsha256,
+                                 inputcontext.replace(',', '|')))
 
     # or else, add only the new info
     else:
-        filename = clean_name(filename)
-        add_info(filename, filesha256, filessdeep, filecontext)
+        inputname = clean_name(inputname)
+        add_info(inputname, inputsha256, inputssdeep, inputcontext)
 
     # return the result in json format if verbose is set
     if options.verbose:
-        print(json.dumps(return_results(filename, filesha256,
-                                        filessdeep, filecontext),
+        print(json.dumps(return_results(inputname, inputsha256,
+                                        inputssdeep, inputcontext),
               indent=4, sort_keys=True))
 
 
+# def add_ssdeep_to_graph(inputname, inputsha256, inputssdeep, inputcontext):
+
 # call functions to get hashes and metainfo
 if options.filename:
-    filename = options.filename
-    filesha256 = file_sha256('{}'.format(filename))
-    filessdeep = file_ssdeep('{}'.format(filename))
-    add_ssdeep_to_db(filename, filesha256, filessdeep, filecontext)
+    inputname = options.inputname
+    inputsha256 = file_sha256('{}'.format(inputname))
+    inputssdeep = file_ssdeep('{}'.format(inputname))
+    print('inputname')
+    add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext)
 
 elif options.jason:
     jasonstring = options.jason
     print(jasonstring)
     jasoninfo = json.loads(jasonstring)
-    filessdeep = jasoninfo[0]
-    filename = jasoninfo[1]
-    filesha256 = jasoninfo[2]
-    add_ssdeep_to_db(filename, filesha256, filessdeep, filecontext)
+    inputssdeep = jasoninfo[0]
+    inputname = jasoninfo[1]
+    inputsha256 = jasoninfo[2]
+    add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext)
 
 elif options.csvfile:
     """ this function expects a csv file with headers:
-    ssdeep,sha256,filename,context0 (most important context), context1.
+    ssdeep,sha256,inputname,context0 (most important context), context1.
     Additionally, a context should be given on the cli (-c)"""
     csvfile = options.csvfile
     with open(csvfile) as csvfile:
@@ -357,8 +364,8 @@ elif options.csvfile:
         for row in reader:
             csvcontext = []
             if row['ssdeep'] and row['sha256']:
-                if row['filename'] is '':
-                    row['filename'] = row['sha256']
+                if row['inputname'] is '':
+                    row['inputname'] = row['sha256']
                 if row['context0'] is '':
                     row['context0'] = 'unknown_type'
                 csvcontext.append(clean_context(row['context0']))
@@ -368,8 +375,8 @@ elif options.csvfile:
                 for clicontext in clicontexts:
                     if clicontext is not '':
                         csvcontext.append(clicontext)
-                filecontext = ','.join(csvcontext)
-                add_ssdeep_to_db(clean_name(row['filename']),
-                                 row['sha256'], row['ssdeep'], filecontext)
-                print(clean_name(row['filename']),
-                      row['sha256'], row['ssdeep'], filecontext)
+                inputcontext = ','.join(csvcontext)
+                add_ssdeep_to_db(clean_name(row['inputname']),
+                                row['sha256'], row['ssdeep'], inputcontext)
+                print(clean_name(row['inputname']),
+                    row['sha256'], row['ssdeep'], inputcontext)

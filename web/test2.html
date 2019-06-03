@@ -1,0 +1,204 @@
+<head>
+  <style> body { margin: 0; }
+  .info0 {
+    z-index: 0;
+    bottom: 0;
+    display:inline-block;
+    height: 10vh;
+    width: 50%;
+    font-color: #1f1f1f;
+    background: none transparent;
+    border: 0;
+  margin: 0;}
+  .info1 {
+    z-index: 0;
+    bottom: 0;
+    display: inline-block;
+    height: 10vh;
+    width: 50%;
+    font-color: #fff;
+    background: none transparent;
+    border: 0;
+  margin: 0;}
+
+  #graph {z-index: 0;
+  display: inline-block;
+  width: 100vw;
+  height: 90vh;
+  border: 0;
+  margin:0;
+  top: 0;}
+  </style>
+  <script src="2d/force-graph.js"></script>
+
+</head>
+
+<body>
+<div id="graph"></div>
+<div id="info0" class="info0">
+  info0
+<div class="container">
+  <div class="row">
+    <div class="col-md-6">
+      <div class="form-group">
+        <label for="data">Data</label>
+        <textarea name="data" id="data" rows="20" class="form-control"></textarea>
+      </div><!-- form-group -->
+    </div><!-- /col -->
+    <div id="tableGoesHere" class="col-md-6">
+
+    </div><!-- col -->
+  </div><!-- /row -->
+</div><!-- container -->
+</div><div id="info1" class="info1">info1</div>
+
+
+
+    <script type="text/JavaScript">
+
+      /* The function */
+
+function json2table(json, classes) {
+  var cols = Object.keys(json[0]);
+
+  var headerRow = '';
+  var bodyRows = '';
+
+  classes = classes || '';
+
+//  function capitalizeFirstLetter(string) {
+//    return string.charAt(0).toUpperCase() + string.slice(1);
+//  }
+
+//  cols.map(function(col) {
+//    headerRow += '<th>' + capitalizeFirstLetter(col) + '</th>';
+//  });
+
+  json.map(function(row) {
+//    bodyRows += '<tr>';
+
+    cols.map(function(colName) {
+      bodyRows += '<tr><td><b>'+ colName +'</b></td><td>' + row[colName] + '</td></tr>';
+    })
+
+//    bodyRows += '</tr>';
+  });
+
+  return '<table class="' +
+         classes +
+         '"><thead><tr>' +
+         headerRow +
+         '</tr></thead><tbody>' +
+         bodyRows +
+         '</tbody></table>';
+}
+
+/* How to use it */
+
+var defaultData = [
+  { country: 'China',         population: 1379510000 },
+  { country: 'India',         population: 1330780000 },
+  { country: 'United States', population:  324788000 },
+  { country: 'Indonesia',     population:  260581000 },
+  { country: 'Brazil',        population:  206855000 },
+];
+
+var defaultData = [{"context": "win.seduploader|malpedia|2016-05-21", "name": "69940a20ab9abb31a03fcefe6de92a16ed474bbdff3288498851afc12a834261", "sha256": "69940a20ab9abb31a03fcefe6de92a16ed474bbdff3288498851afc12a834261", "ssdeep": "768:lt2tVAofyTBR3khwc1NahEJ+6+fonw1nlwYmXfOZb+qTl6oHZ:l4tVFqFR0mcTah4+AsnlCWZZl6o5"},
+{"context": "testseduploader|malpedia|2016-05-21", "name": "test0a20ab9abb31a03fcefe6de92a16ed474bbdff3288498851afc12a834261", "sha256": "test0a20ab9abb31a03fcefe6de92a16ed474bbdff3288498851afc12a834261", "ssdeep": "768:testVAofyTBR3khwc1NahEJ+6+fonw1nlwYmXfOZb+qTl6oHZ:l4tVFqFR0mcTah4+AsnlCWZZl6o5"}]
+
+
+document.getElementById('tableGoesHere').innerHTML = json2table(defaultData, 'table');
+
+/* Live example */
+
+var dom = {
+  data: document.getElementById('data'),
+  table: document.getElementById('tableGoesHere'),
+};
+
+dom.data.value = JSON.stringify(defaultData);
+dom.data.addEventListener('input', function() {
+  dom.table.innerHTML = json2table(JSON.parse(dom.data.value), 'table');
+});
+
+    fetch('./malpedia.json', {cache: "no-store"})
+    .then(res => res.json())
+    .then((out) => {
+    var myData = out;
+    const elem = document.getElementById('graph');
+    // const Graph = ForceGraph3D( { alpha: true } )
+  	// let highlightNodes = [];
+		// const NODE_R = 8;
+
+/*
+keys and values in json response
+'id': rdb.zrank(cachename, ssdeep),
+'name': '{}'.format(context),
+'ssdeep': '{}'.format(ssdeep),
+'ssdeep_contexts': '{} ({})'.format(ssdeep, contextlist),
+'groupid': rdb.zrank(contexts, contextlist),
+'contexts': contextlist}
+*/
+
+    const Graph = ForceGraph( { alpha: true } )
+            (elem)
+        //.nodeThreeObject(node => {
+        //  const sprite = new SpriteText(node.fam);
+        //  sprite.color = node.color;
+        //  sprite.textHeight = 8;
+        //  return sprite;
+        //  })
+        //[3d] .showNavInfo(true)
+				// .nodeRelSize(NODE_R)
+        .backgroundColor('#5f5f5f')
+        .nodeAutoColorBy('groupid')
+        .linkAutoColorBy(d => myData.nodes[d.source].id)
+        //[3d] .linkOpacity(0.5)
+        .linkLabel('contexts')
+        .graphData(myData)
+        //[3d]  .onNodeHover(node => elem.style.cursor = node ? 'pointer' : null)
+        // .onNodeHover(node => {console.log(Object.keys(node));})
+        .onNodeHover(node => {
+          if (node !== null ) {console.log(node.ssdeep);}
+        })
+        // .nodeCanvasObject((node, ctx, globalScale) => {
+				// 	 if (highlightNodes.indexOf(node) !== -1) {
+        //    const label = node.name_fam;
+        //    const fontSize = 12/globalScale;
+        //    ctx.font = `${fontSize}px Sans-Serif`;
+        //    const textWidth = ctx.measureText(label).width;
+        //    const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2); // some padding
+        //    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        //    ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y - bckgDimensions[1] / 2, ...bckgDimensions);
+        //    ctx.textAlign = 'center';
+        //    ctx.textBaseline = 'middle';
+        //    ctx.fillStyle = node.color;
+        //    ctx.fillText(label, node.x, node.y);
+				// 	 }
+				// 	 // to have an empty node
+				// 	 ctx.beginPath();
+				// 	 ctx.arc(node.x, node.y, NODE_R, 0, 2 * Math.PI, false);
+				// 	 ctx.fillStyle = '#fefefe';
+				// 	 ctx.fill()
+
+        //  })
+        /* .onNodeClick(node => {
+          // Aim at node from outside it
+          const distance = 60;
+          const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
+          //[3d] Graph.cameraPosition(
+            //[3d] { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, // new position
+            //[3d] node, // lookAt ({ x, y, z })
+            //[3d] 3000  // ms transition duration
+          //[3d] );
+          // data display
+          document.getElementById('infonode').textContent = "replaced anchor!";
+        });
+        */
+        // .onNodeClick(node => {document.getElementById('infonode').textContent = "replaced anchor!"; });
+
+    //     });
+
+    }).catch(err => console.error(err));
+  </script>
+</body>

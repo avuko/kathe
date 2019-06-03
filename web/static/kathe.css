@@ -1,16 +1,49 @@
 body {
-margin: 0;
-padding: 0;
-background-color: #fdfdfc;
+  font-family: 'Fira Sans';
+  font-weight: 300;
+  font-size: large;
+  background-color: #fdfdfc;
+  border: 0;
+  margin: 0;
+  overflow: hidden;
+  }
+
+p {
+  font-family: 'Fira Sans';
+  font-weight: 300;
+  font-size: large;
+  background: none transparent;}
+
+td {
+vertical-align: top;
+text-align: left;
 }
-.links line {
-  stroke: #999;
-  stroke-opacity: 0.6;
+#chart {
+        /* display: block; */
+        position: relative;
+        left: 0px;
+        right: 0px;
+        top: 0px;
+        bottom: 0px;
 }
 
-.nodes circle {
-  stroke: #fff;
-  stroke-width: 1.5px;
+#ssdeepinfo, #ssdeephash, h1, input, select, textarea, a {
+font-family: 'Fira Mono'; font-size: large;
+}
+fieldset, textarea, input, select {
+border: solid 1px #999;
+background-color:#f9f9f9;
+}
+
+#searchform {
+background: none transparent;
+position: fixed;
+top: 0;
+left:0;
+z-index: 1;
+}
+legend {
+background: none #fdfdfc;
 }
 
 form {
@@ -22,115 +55,54 @@ input {
 width: 50vw;
 }
 
-#container {
-width: 83vw;
-border: solid 1px #999;
-margin: 0;
-margin-left: 1px;
-margin-top: 1px;
-float: left;
-padding: 0;
+#graph {
+  z-index: 0;
+  display: inline-block;
+  width:  100vw;
+  height: 90vh;
+  border: 0;
+  margin: 0;
+  top: 0;
+  background: none transparent;
 }
 
-#infospan {
-background: none transparent;
-display: block;
-float: right;
-padding-right: 1em;
-}
-
-#chart {
-width: 83vw;
-height: 65vh;
-bottom: 0px;
-display:block;
-overflow: hidden;
-border-bottom: solid 1px #999;
-}
 
 #info0 {
-float: left;
-width: 50%;
-font-size: smaller;
-line-height: 1.2;
-height: 12em;
-bottom: 0px;
-display:inline-block;
-padding: 0;
-margin: 0;
-border-right: solid 1px #999;
+  z-index: 1;
+  display: inline-block;
+  width: 50%;
+  font-size: smaller;
+  line-height: 1.2;
+  height: 10em;
+  border: solid 1px #999;
+  background-color: #f9f9f9;
+  position: fixed;
+  bottom: 0;
+  left: 1px;
+  padding: 0;
+  margin: 0;
+  padding: 2px;
+  margin: 0;
+  overflow-y: scroll;
+  overflow-x: hidden;
 }
 
 #info1 {
-float: left;
-width: 49%;
-font-size: smaller;
-line-height: 1.2;
-height: 12em;
-bottom: 0px;
-display:inline-block;
-padding: 0;
-margin: 0;
+  z-index: 1;
+  display: inline-block;
+  width: 50%;
+  font-size: smaller;
+  line-height: 1.2;
+  height: 10em;
+  border: solid 1px #999;
+  background-color: #f9f9f9;
+  position: fixed;
+  bottom: 0;
+  right: 1px;
+  padding: 2px;
+  margin: 0;
+  opacity: 1;
+  overflow-y: scroll;
+  overflow-x: hidden;
 }
 
-.infocontent {
-overflow-wrap: break-all;
-word-break: break-all;
-}
-
-
-table {
-margin: 5px;
-}
-
-td {
-vertical-align: top;
-}
-.legend {
-font-family: 'Fira Mono';
-font-weight: 400;
-text-anchor: middle;
-}
-
-#contextdiv {
-margin: 0;
-margin-top: 1px;
-margin-right: 1px;
-padding: 0;
-display: inline-block;
-width: 15.2vw;
-height: 98vh;
-float: right;
-overflow: auto;
-}
-
-.contextul {
-padding: 1em;
-}
-
-ul {
-list-style-type: none;
-}
-.lispan {
-//float: left;
-}
-
-// https://blog.prototypr.io/align-svg-icons-to-text-and-say-goodbye-to-font-icons-d44b3d7b26b4
-.icon {
-    display: inline-flex;
-    align-self: center;
-}
-
-.icon svg, .icon img {
-    height: 1em;
-    width: 1em;
-}
-
-.icon.baseline svg, .icon img {
-    top: .125em;
-    position: relative;
-}
-
-li {
-white-space:nowrap;
-}

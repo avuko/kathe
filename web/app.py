@@ -14,7 +14,7 @@ MYHOST = '127.0.0.1'
 try:
     REDISDB = sys.argv[1]
 except IndexError:
-    REDISDB = 14
+    REDISDB = 13
 
 SORTED_SET_LIMIT = 500
 CONTEXT_SET_LIMIT = 2000
@@ -47,8 +47,7 @@ def unique_list(seq):
     return list(dict.fromkeys(seq))
 
 def get_sortedset_count(rdb, sortedset):
-    """
-    Return the number of items in a sorted set.
+    """return the number of items in a sorted set.
     This function is used to repurpose sorted sets as indices
     """
     sortedset_index = None
@@ -57,8 +56,7 @@ def get_sortedset_count(rdb, sortedset):
     return sortedset_index
 
 def build_ssdeep_cache(rdb, ssdeep, cachename):
-    """
-    return a sorted set of all ssdeeps in a particular cache,
+    """return a sorted set of all ssdeeps in a particular cache,
     where the score is the position in the sorted set, effectively creating
     an index of unique ssdeeps.
     The SORTED_SET_LIMIT is set because otherwise everything comes to a
@@ -73,7 +71,6 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
             rdb.zadd(cachename, ssdeep_key, get_sortedset_count(rdb, cachename))
     else:
         print('none')
-
     while length < get_sortedset_count(rdb, cachename):
         length = get_sortedset_count(rdb, cachename)
         for ssdeep in rdb.zscan_iter(cachename):
@@ -84,9 +81,9 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
                              get_sortedset_count(rdb, cachename))
     return cachename
 
+
 def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
-    """ 
-    I needed a way to manage the caches.
+    """ I needed a way to manage the caches.
     See flushcache.py
     XXX I think this is not working as a think it does.
     """
@@ -110,6 +107,7 @@ def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
     return (cachename, cachelength)
 
 def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
+    # XXX def gottacatchemall(searchquery_type, searchquery_input, ssdeep, sampled):
     """exhaustive function to get all related ssdeep hashes.
     This is where the core of the work is done, linking all ssdeeps together,
     with the ssdeep_compare as a score.
@@ -170,9 +168,8 @@ def check_verify(rdb, searchquery):
     #print(f'searchtype: {searchtype}')
     return searchtype
 
-def return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, sampled):
-    """ 
-    Store search results as json string in redis if is doesn't already
+def return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled):
+    """ store search results as json string in redis if is doesn't already
     exist, retrieve from redis and yield results.
     This also creates a "None" json cache, which is fine by me
     """
@@ -182,28 +179,25 @@ def return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, sample
         jsoncachename = cachename.split(':')
     else:
         cache_count = 0
-        jsoncachename = []
-
     # format json cache name like link and nodes caches
+    jsoncachename = cachename.split(':')
     jsoncachename[-1:-1] = ['json']
     jsoncachename = ':'.join(jsoncachename)
     # jsoncachename = "json:{}".format(cachename)
-    # if rdb.exists(jsoncachename):
-    #     print('json cache exists')
-    #     print(jsoncachename)
-    #     search_results = rdb.get(jsoncachename)
-    # else:
-    #     selectioninfo = {"nodecount": '{}'.format(int(cache_count)), "linkcount": '{}'.format(len(allssdeeplinks)), "sample": '{}'.format(sampled).lower()}
-    #     rv = {'info': selectioninfo, 'nodes': allssdeepnodes, 'links': allssdeeplinks}
-    #     rdb.set(jsoncachename, json.dumps(rv, sort_keys=True))
-    #     search_results = rdb.get(jsoncachename)
-    selectioninfo = {"nodecount": '{}'.format(int(cache_count)), "linkcount": '{}'.format(len(allssdeeplinks)), "sample": '{}'.format(sampled).lower()}
-    rv = {'info': selectioninfo, 'nodes': allssdeepnodes, 'links': allssdeeplinks}
-    rdb.set(jsoncachename, json.dumps(rv, sort_keys=True))
-    search_results = rdb.get(jsoncachename)
+    if rdb.exists(jsoncachename):
+        print('json cache exists')
+        print(jsoncachename)
+        search_results = rdb.get(jsoncachename)
+    else:
+        selectioninfo = {"nodecount": '{}'.format(int(cache_count)), "linkcount": '{}'.format(len(allssdeeplinks)), "sample": '{}'.format(sampled).lower()}
+        rv = {'info': selectioninfo, 'nodes': allssdeepnodes, 'links': allssdeeplinks, 'contexts': allssdeepcontexts}
+        rdb.set(jsoncachename, json.dumps(rv, sort_keys=True))
+        search_results = rdb.get(jsoncachename)
     yield search_results
 
+
 # web service routes begin here
+
 @route('/')
 def hello():
     """ redirect to kathe """
@@ -214,7 +208,7 @@ def hello():
 object {display: block; width: 60%; height: 50vh; border: 0; overflow: hidden; margin: auto; margin-top: 10vh;}
 </style>
 <link rel="stylesheet" href="/static/fira.css">
-<link rel="stylesheet" href="/static/kathe.css">
+<link rel="stylesheet" href="/static/kathe2.css">
 </head>
 <body>
 <!--[if IE]>
@@ -234,8 +228,8 @@ object {display: block; width: 60%; height: 50vh; border: 0; overflow: hidden; m
 def build_context(querystring=None):
     # def build_context(querystring):
     """ This route provides the main GUI.
-    It consists of glued together CSS, JavaScript and python.
-    I use Redis for the backend and force-graph.js for the frontend.
+It consists of glued together CSS, JavaScript and python.
+I use Redis for the backend and force-graph.js for the frontend.
     """
     querystring = request.query.search
     response = """
@@ -243,7 +237,7 @@ def build_context(querystring=None):
 <head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="/static/fira.css">
-<link rel="stylesheet" href="/static/kathe.css">
+<link rel="stylesheet" href="/static/kathe2.css">
 </head>
 <body>
  <script>
@@ -281,11 +275,10 @@ def build_context(querystring=None):
  return returnstring;
  }}
  </script>
- <!--script src="/static/2d/force-graph.js"></script> -->
- <!-- 2d -->
- <script src="https://unpkg.com/force-graph"></script>
+ <script src="/static/2d/force-graph.js"></script>
+ <!-- <script src="//unpkg.com/force-graph"></script> -->
  <!-- 3d -->
- <!-- <script src="https://unpkg.com/3d-force-graph"></script> -->
+<!-- <script src="//unpkg.com/3d-force-graph"></script> -->
  <script>
 // fetch ssdeephash info
 function ssdeepinfo(ssdeep) {{
@@ -351,7 +344,7 @@ function json2table(json, classes) {{
         .linkAutoColorBy(d => myData.nodes[d.target].id)
         .linkLabel('ssdeepcompare')
         .linkHoverPrecision('1')
-        .linkWidth('value')
+        .linkWidth('value' * 1.1)
         .graphData(myData)
         .onNodeHover(node => {{
           if (node !== null ) {{kathehover(node.ssdeep);}}
@@ -362,7 +355,12 @@ function json2table(json, classes) {{
           Graph.zoom(8, 2000);
         }})
         .onNodeClick(node => {{
-          if (node !== null ) {{katheclick(node.ssdeep);}}
+          if (node !== null ) {{
+          katheclick(node.ssdeep);
+          // Center/zoom on node
+          Graph.centerAt(node.x, node.y, 1000);
+          Graph.zoom(8, 2000);
+          }}
 
         }})
 
@@ -385,6 +383,7 @@ def contextinfo(rdb, querystring=None):
     # allcontexts = []
     allssdeepnodes = []
     allssdeeplinks = []
+    allssdeepcontexts = []
     # selectioninfo = []
     sampled = False
 
@@ -422,6 +421,7 @@ def contextinfo(rdb, querystring=None):
         # first we create the cache
         for ssdeep in rdb.zscan_iter(cachename):
             # zrange_iter returns with a tuple (ssdeep,score)
+            # print(ssdeep)
             ssdeep = ssdeep[0]
             alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
             for k in alllinks:
@@ -445,7 +445,8 @@ def contextinfo(rdb, querystring=None):
             # and a zrank function on an ordered set, so we can use it to get the index of a context as integer
             # for our grouping
             contexts = 'names:context'
-            contextlist = []
+            allcontextlist = []
+            sha256list = []
             for infoline in allinfo:
                     return_sha256 = infoline.split(':')[1]
                     prettycontext = infoline.split(':')[3]
@@ -496,11 +497,15 @@ def contextinfo(rdb, querystring=None):
         allssdeepnodes = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepnodes))])
         allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
         return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, sampled)
+        allssdeepcontexts = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepcontexts))])
+
+        return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
 
     else:
         # if searchquery is None, return empty json
         cachename = None
         return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, sampled)
+
 
 @route('/info', method='GET')
 @route('/info/', method='GET')
@@ -524,12 +529,9 @@ def ssdeepinfo(rdb):
                 else:
                     sha256list.append(infoline.split(':')[1])
             namelist.append(infoline.split(':')[5])
-            # get context from infoline
-            splitlist.append(infoline.split(':')[3].split('|'))
-            # flatten infolines to get a list of context terms, dump empty strings as well.
-            contextlist = unique_list([i for l in splitlist for i in l if i!=''])
+            contextlist.append(infoline.split(':')[3])
 
-        infolist['context'] = ('|').join(contextlist)
+        infolist['context'] = ('|').join(sorted(unique_list(contextlist)))
         infolist['name'] = ('|').join(sorted(unique_list(namelist)))
         infolist['sha256'] = ('|').join(sorted(unique_list(sha256list)))
         # rv = {'info': infolist}

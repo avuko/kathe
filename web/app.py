@@ -174,16 +174,19 @@ def return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssd
     This also creates a "None" json cache, which is fine by me
     """
     # handling empty queries
-    if cachename is not None:
+    if cachename is None:
+        cache_count = 0
+        jsoncachename= "" # can't split on a None object
+    else:
         cache_count = get_sortedset_count(rdb, cachename)
         jsoncachename = cachename.split(':')
-    else:
-        cache_count = 0
-    # format json cache name like link and nodes caches
-    jsoncachename = cachename.split(':')
-    jsoncachename[-1:-1] = ['json']
-    jsoncachename = ':'.join(jsoncachename)
-    # jsoncachename = "json:{}".format(cachename)
+
+        # format json cache name like link and nodes caches
+        jsoncachename = cachename.split(':')
+        jsoncachename[-1:-1] = ['json']
+        jsoncachename = ':'.join(jsoncachename)
+        # jsoncachename = "json:{}".format(cachename)
+
     if rdb.exists(jsoncachename):
         print('json cache exists')
         print(jsoncachename)
@@ -193,6 +196,7 @@ def return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssd
         rv = {'info': selectioninfo, 'nodes': allssdeepnodes, 'links': allssdeeplinks, 'contexts': allssdeepcontexts}
         rdb.set(jsoncachename, json.dumps(rv, sort_keys=True))
         search_results = rdb.get(jsoncachename)
+
     yield search_results
 
 
@@ -208,7 +212,7 @@ def hello():
 object {display: block; width: 60%; height: 50vh; border: 0; overflow: hidden; margin: auto; margin-top: 10vh;}
 </style>
 <link rel="stylesheet" href="/static/fira.css">
-<link rel="stylesheet" href="/static/kathe2.css">
+<link rel="stylesheet" href="/static/kathe.css">
 </head>
 <body>
 <!--[if IE]>
@@ -237,7 +241,7 @@ I use Redis for the backend and force-graph.js for the frontend.
 <head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="/static/fira.css">
-<link rel="stylesheet" href="/static/kathe2.css">
+<link rel="stylesheet" href="/static/kathe.css">
 </head>
 <body>
  <script>
@@ -389,7 +393,7 @@ def contextinfo(rdb, querystring=None):
 
     if querystring is not None and len(querystring) is not 0:
         searchquery = querystring
-        #print(f'searchquery: {querystring}')
+        print(f'searchquery: {querystring}')
     else:
         searchquery = None
     # here we check and build the list of involved ssdeep hashes
@@ -416,7 +420,7 @@ def contextinfo(rdb, querystring=None):
         else:
             # return empty values
             cachename = None
-            return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, sampled)
+            return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
 
         # first we create the cache
         for ssdeep in rdb.zscan_iter(cachename):
@@ -445,7 +449,7 @@ def contextinfo(rdb, querystring=None):
             # and a zrank function on an ordered set, so we can use it to get the index of a context as integer
             # for our grouping
             contexts = 'names:context'
-            allcontextlist = []
+            contextlist = []
             sha256list = []
             for infoline in allinfo:
                     return_sha256 = infoline.split(':')[1]
@@ -496,15 +500,14 @@ def contextinfo(rdb, querystring=None):
 
         allssdeepnodes = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepnodes))])
         allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
-        return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, sampled)
-        allssdeepcontexts = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepcontexts))])
+        allssdeepcontexts = context
 
         return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
 
     else:
         # if searchquery is None, return empty json
         cachename = None
-        return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, sampled)
+        return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
 
 
 @route('/info', method='GET')

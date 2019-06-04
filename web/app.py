@@ -3,6 +3,7 @@
 from bottle import HTTPResponse, response, request, \
     install, run, route, static_file, default_app
 import json
+from itertools import cycle, islice
 import urllib.parse
 import ast
 import bottle_redis as redis
@@ -40,11 +41,49 @@ data_sources = {'hybridanalysis': 'https://www.hybrid-analysis.com/sample/',
 plugin = redis.RedisPlugin(host='localhost', db=REDISDB, decode_responses=True)
 install(plugin)
 
+def roundrobin(*iterables):
+    # Recipe credited to George Sakkis
+    num_active = len(iterables)
+    nexts = cycle(iter(it).__next__ for it in iterables)
+    while num_active:
+        try:
+            for next in nexts:
+                yield next()
+        except StopIteration:
+            # Remove the iterator we just exhausted from the cycle.
+            num_active -= 1
+            nexts = cycle(islice(nexts, num_active))
+
 def unique_list(seq):
     """
     https://www.peterbe.com/plog/fastest-way-to-uniquify-a-list-in-python-3.6
     """
-    return list(dict.fromkeys(seq))
+    # modified to remove empty context entries
+    return list(dict.fromkeys(s for s in seq if s))
+
+def unique_context_list(seq):
+    """
+    alternative implementation to allow for splitting a multiple contexts into one unique context string, 
+    preserving order of the various input strings
+    """
+    ucl = []
+    splitseq = []
+
+    # check if we have a list of context strings
+    if len(seq)>1:
+        # split sublists
+        for i in seq:
+            splitseq.append(i.split('|'))
+        # evil itertools list hacking
+        rr_ucl = roundrobin(*splitseq)
+        # deduplicate
+        ucl = unique_list(rr_ucl)
+
+    # if we're dealing with just one set of context
+    else:
+        ucl = unique_list(seq[0].split('|'))
+
+    return ucl
 
 def get_sortedset_count(rdb, sortedset):
     """return the number of items in a sorted set.
@@ -525,6 +564,9 @@ def ssdeepinfo(rdb):
         namelist = []
         for infoline in allinfo:
             # create an attribute to link sha256 hashes to online data sources
+
+            # I think this causes some strange behaviour in the info0 and info1 boxes.
+            # it might be necessary to remove the non-link sha256 from whatever is being used for these -L
             for data_source in data_sources:
                 if data_source in infoline.split(':')[3]:
                     sha256list.append('{}{}'.format(data_sources[data_source],
@@ -534,7 +576,11 @@ def ssdeepinfo(rdb):
             namelist.append(infoline.split(':')[5])
             contextlist.append(infoline.split(':')[3])
 
-        infolist['context'] = ('|').join(sorted(unique_list(contextlist)))
+        # I made a second unique_list function to create an ordered list of unique context terms
+        infolist['context'] = ('|').join(unique_context_list(contextlist))
+        # print(f"debug, contextlist: {contextlist}")
+        # print(f"debug, infolist: {infolist['context']}")
+
         infolist['name'] = ('|').join(sorted(unique_list(namelist)))
         infolist['sha256'] = ('|').join(sorted(unique_list(sha256list)))
         # rv = {'info': infolist}

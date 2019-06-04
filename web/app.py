@@ -471,6 +471,7 @@ def contextinfo(rdb, querystring=None):
             # print(ssdeep)
             ssdeep = ssdeep[0]
             alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
+            print(f'DEBUG: ssdeep {ssdeep} alllinks {alllinks}')
             for k in alllinks:
                 linkssdeep = k[0].split(',')[0]
                 # limit to prevent explosion
@@ -497,6 +498,7 @@ def contextinfo(rdb, querystring=None):
             for infoline in allinfo:
                     return_sha256 = infoline.split(':')[1]
                     context = infoline.split(':')[3]
+                    print(f'context: {context}')
                     # The first infoline will determine the "most significant" context of the ssdeep.
                     # the first item of the contextlist created from the first infoline will be the
                     # most significant context used below.
@@ -514,14 +516,15 @@ def contextinfo(rdb, querystring=None):
             # that combined contextlist string should already be a separate context in
             # "names:contexts" as created by "kathe.py"
             context = unique_context_list(contextlist)
+            print(f'contextlist: {contextlist}')
 
             fullcontextlist = ('|').join(context)
             newnode = {
                        'id': rdb.zrank(cachename, ssdeep),
-                       'name': '{}'.format(contextlist),
+                       'name': context,
                        'sha256': return_sha256,
-                       'ssdeep': '{}'.format(ssdeep),
-                       'ssdeep_contexts': '{} ({})'.format(ssdeep, contextlist),
+                       'ssdeep': f'{ssdeep}',
+                       'main_context': f'{contextlist}',
                        'groupid': rdb.zrank(contexts, contextlist),
                        'contexts': fullcontextlist}
             allssdeepnodes, allssdeepnodescount = cache_action(rdb,
@@ -529,6 +532,17 @@ def contextinfo(rdb, querystring=None):
                                                                'nodes',
                                                                newnode,
                                                                'add')
+
+            # print(allssdeepnodes, allcontextlist)
+            allssdeepcontexts = context
+            print(allssdeepcontexts)
+            # allssdeepcontexts = allcontextlist
+            allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
+                                                                    cachename,
+                                                                    'contexts',
+                                                                    newnode,
+                                                                    'add')
+
             for k in alllinks:
                 linkssdeep = k[0].split(',')[0]
                 # limit to prevent explosion

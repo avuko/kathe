@@ -81,7 +81,11 @@ def unique_context_list(seq):
 
     # if we're dealing with just one set of context
     else:
-        ucl = unique_list(seq[0].split('|'))
+        if len(seq) > 0:
+            ucl = unique_list(seq[0].split('|'))
+        else:
+            print(f"something weird happened, seq: {seq}")
+            return ""
 
     return ucl
 
@@ -492,8 +496,7 @@ def contextinfo(rdb, querystring=None):
             sha256list = []
             for infoline in allinfo:
                     return_sha256 = infoline.split(':')[1]
-                    prettycontext = infoline.split(':')[3]
-                    context = prettycontext.split('|')
+                    context = infoline.split(':')[3]
                     # The first infoline will determine the "most significant" context of the ssdeep.
                     # the first item of the contextlist created from the first infoline will be the
                     # most significant context used below.
@@ -502,12 +505,16 @@ def contextinfo(rdb, querystring=None):
                     # this is still an ugly hack to get a single "family context"
                     # based on location of that "family context" in the original
                     # kathe contexts list. TODO
-                    if context[0] not in contextlist:
-                        contextlist.append(context[0])
+
+                    # the new unique_context_list function could be an option here.
+                    # i've rewritten this function to use this. -L
+                    contextlist.append(context)
+                    
             # if a contextlist exists of multiple different "most significant" contexts,
             # that combined contextlist string should already be a separate context in
             # "names:contexts" as created by "kathe.py"
-            print(context)
+            context = unique_context_list(contextlist)
+
             fullcontextlist = ('|').join(context)
             newnode = {
                        'id': rdb.zrank(cachename, ssdeep),
@@ -539,7 +546,7 @@ def contextinfo(rdb, querystring=None):
 
         allssdeepnodes = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepnodes))])
         allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
-        allssdeepcontexts = context
+        allssdeepcontexts = contexts
 
         return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
 

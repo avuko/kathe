@@ -345,7 +345,7 @@ def add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext):
 
 # call functions to get hashes and metainfo
 if options.filename:
-    inputname = options.inputname
+    inputname = options.filename
     inputsha256 = file_sha256('{}'.format(inputname))
     inputssdeep = file_ssdeep('{}'.format(inputname))
     print('inputname')

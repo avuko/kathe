@@ -3,6 +3,7 @@
 from bottle import HTTPResponse, response, request, \
     install, run, route, static_file, default_app
 import json
+from itertools import cycle, islice
 import urllib.parse
 import ast
 import bottle_redis as redis
@@ -36,29 +37,57 @@ data_sources = {'hybridanalysis': 'https://www.hybrid-analysis.com/sample/',
 # app.DEBUG=True
 # app.debug=True
 # decode responses is important here
+
 plugin = redis.RedisPlugin(host='localhost', db=REDISDB, decode_responses=True)
 install(plugin)
 
+def roundrobin(*iterables):
+    # Recipe credited to George Sakkis
+    num_active = len(iterables)
+    nexts = cycle(iter(it).__next__ for it in iterables)
+    while num_active:
+        try:
+            for next in nexts:
+                yield next()
+        except StopIteration:
+            # Remove the iterator we just exhausted from the cycle.
+            num_active -= 1
+            nexts = cycle(islice(nexts, num_active))
 
-# https://www.peterbe.com/plog/uniqifiers-benchmark
-def unique_list(seq, idfun=None):
-    """I needed a cheap and simple way to create a unique ordered list.
-    This is used to clean up the context/sha256 and ssdeep lists under /info
+def unique_list(seq):
     """
-    # order preserving
-    if idfun is None:
-        def idfun(x):
-            return x
-    seen = {}
-    result = []
-    for item in seq:
-        marker = idfun(item)
-        if marker in seen:
-            continue
-        seen[marker] = 1
-        result.append(item)
-    return result
+    https://www.peterbe.com/plog/fastest-way-to-uniquify-a-list-in-python-3.6
+    """
+    # modified to remove empty context entries
+    return list(dict.fromkeys(s for s in seq if s))
 
+def unique_context_list(seq):
+    """
+    alternative implementation to allow for splitting a multiple contexts into one unique context string, 
+    preserving order of the various input strings
+    """
+    ucl = []
+    splitseq = []
+
+    # check if we have a list of context strings
+    if len(seq)>1:
+        # split sublists
+        for i in seq:
+            splitseq.append(i.split('|'))
+        # evil itertools list hacking
+        rr_ucl = roundrobin(*splitseq)
+        # deduplicate
+        ucl = unique_list(rr_ucl)
+
+    # if we're dealing with just one set of context
+    else:
+        if len(seq) > 0:
+            ucl = unique_list(seq[0].split('|'))
+        else:
+            print(f"something weird happened, seq: {seq}")
+            return ""
+
+    return ucl
 
 def get_sortedset_count(rdb, sortedset):
     """return the number of items in a sorted set.
@@ -68,7 +97,6 @@ def get_sortedset_count(rdb, sortedset):
     if sortedset:
         sortedset_index = float(rdb.zcount(sortedset, '-inf', '+inf'))
     return sortedset_index
-
 
 def build_ssdeep_cache(rdb, ssdeep, cachename):
     """return a sorted set of all ssdeeps in a particular cache,
@@ -121,7 +149,6 @@ def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
         cachelength = rdb.scard(cachename)
     return (cachename, cachelength)
 
-
 def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
     # XXX def gottacatchemall(searchquery_type, searchquery_input, ssdeep, sampled):
     """exhaustive function to get all related ssdeep hashes.
@@ -165,11 +192,10 @@ def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
         build_ssdeep_cache(rdb, ssdeep, cachename)
         return cachename
 
-
-# def check_verify(rdb, searchquery):
 def check_verify(rdb, searchquery):
-    """ check_verify does two things:
-    1) check wether a searched item exists.
+    """ 
+    check_verify does two things:
+    1) check whether a searched item exists.
        If not, fail without returning user input
     2) return the type of the searched item, if an item does exist.
     """
@@ -181,8 +207,9 @@ def check_verify(rdb, searchquery):
         searchtype = 'sha256'
     else:
         searchtype = False
-    return searchtype
 
+    #print(f'searchtype: {searchtype}')
+    return searchtype
 
 def return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled):
     """ store search results as json string in redis if is doesn't already
@@ -190,15 +217,19 @@ def return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssd
     This also creates a "None" json cache, which is fine by me
     """
     # handling empty queries
-    if cachename is not None:
-        cache_count = get_sortedset_count(rdb, cachename)
-    else:
+    if cachename is None:
         cache_count = 0
-    # format json cache name like link and nodes caches
-    jsoncachename = cachename.split(':')
-    jsoncachename[-1:-1] = ['json']
-    jsoncachename = ':'.join(jsoncachename)
-    # jsoncachename = "json:{}".format(cachename)
+        jsoncachename= "" # can't split on a None object
+    else:
+        cache_count = get_sortedset_count(rdb, cachename)
+        jsoncachename = cachename.split(':')
+
+        # format json cache name like link and nodes caches
+        jsoncachename = cachename.split(':')
+        jsoncachename[-1:-1] = ['json']
+        jsoncachename = ':'.join(jsoncachename)
+        # jsoncachename = "json:{}".format(cachename)
+
     if rdb.exists(jsoncachename):
         print('json cache exists')
         print(jsoncachename)
@@ -208,6 +239,7 @@ def return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssd
         rv = {'info': selectioninfo, 'nodes': allssdeepnodes, 'links': allssdeeplinks, 'contexts': allssdeepcontexts}
         rdb.set(jsoncachename, json.dumps(rv, sort_keys=True))
         search_results = rdb.get(jsoncachename)
+
     yield search_results
 
 
@@ -223,7 +255,7 @@ def hello():
 object {display: block; width: 60%; height: 50vh; border: 0; overflow: hidden; margin: auto; margin-top: 10vh;}
 </style>
 <link rel="stylesheet" href="/static/fira.css">
-<link rel="stylesheet" href="/static/kathe2.css">
+<link rel="stylesheet" href="/static/kathe.css">
 </head>
 <body>
 <!--[if IE]>
@@ -237,7 +269,6 @@ object {display: block; width: 60%; height: 50vh; border: 0; overflow: hidden; m
 <!--> <![endif]-->
 </body>
 </html>"""
-
 
 @route('/kathe')
 @route('/kathe/')
@@ -253,7 +284,7 @@ I use Redis for the backend and force-graph.js for the frontend.
 <head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="/static/fira.css">
-<link rel="stylesheet" href="/static/kathe2.css">
+<link rel="stylesheet" href="/static/kathe.css">
 </head>
 <body>
  <script>
@@ -389,7 +420,6 @@ function json2table(json, classes) {{
            urllib.parse.quote_plus(querystring).replace('+', '%2B'))
     return response
 
-
 @route('/search', method='GET')
 @route('/search/', method='GET')
 def contextinfo(rdb, querystring=None):
@@ -406,6 +436,7 @@ def contextinfo(rdb, querystring=None):
 
     if querystring is not None and len(querystring) is not 0:
         searchquery = querystring
+        print(f'searchquery: {querystring}')
     else:
         searchquery = None
     # here we check and build the list of involved ssdeep hashes
@@ -429,18 +460,18 @@ def contextinfo(rdb, querystring=None):
             searchquery = [(':').join(splitted) for splitted in searchquery]
             # searchquery is now a list of ssdeep(s)
             cachename = gottacatchemall(rdb, 'context', searchquery_input, searchquery, sampled)
-
         else:
             # return empty values
             cachename = None
-            return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, sampled)
+            return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
 
-        # firt we create the cache
+        # first we create the cache
         for ssdeep in rdb.zscan_iter(cachename):
             # zrange_iter returns with a tuple (ssdeep,score)
             # print(ssdeep)
             ssdeep = ssdeep[0]
             alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
+            print(f'DEBUG: ssdeep {ssdeep} alllinks {alllinks}')
             for k in alllinks:
                 linkssdeep = k[0].split(',')[0]
                 # limit to prevent explosion
@@ -457,46 +488,53 @@ def contextinfo(rdb, querystring=None):
             ssdeep = ssdeep[0]
             alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
             allinfo = rdb.smembers('info:ssdeep:{}'.format(ssdeep))
+            #print(f'allinfo: {allinfo}')
             # names:context is a list with a zscore based on the number of occurences of a certain context
             # and a zrank function on an ordered set, so we can use it to get the index of a context as integer
             # for our grouping
             contexts = 'names:context'
-            allcontextlist = []
+            contextlist = []
             sha256list = []
             for infoline in allinfo:
-                sha256list.append(infoline.split(':')[1])
-                prettycontext = infoline.split(':')[3]
-                contextlist = prettycontext.split('|')
-                allcontextlist.extend(contextlist)
-                # The first infoline will determine the "most significant" context of the ssdeep.
-                # the first item of the contextlist created from the first infoline will be the
-                # most significant context used below.
-                # get the second last (or the only) element
-                # probably needs <=, not ==
-                # this is still an ugly hack to get a single "family context"
-                # based on location of that "family context" in the original
-                # kathe contexts list. TODO
-                # if context[0] not in contextlist:
-                #    contextlist.append(context[0])
+                    return_sha256 = infoline.split(':')[1]
+                    context = infoline.split(':')[3]
+                    print(f'context: {context}')
+                    # The first infoline will determine the "most significant" context of the ssdeep.
+                    # the first item of the contextlist created from the first infoline will be the
+                    # most significant context used below.
+                    # get the second last (or the only) element
+                    # probably needs <=, not ==
+                    # this is still an ugly hack to get a single "family context"
+                    # based on location of that "family context" in the original
+                    # kathe contexts list. TODO
+
+                    # the new unique_context_list function could be an option here.
+                    # i've rewritten this function to use this. -L
+                    contextlist.append(context)
+                    
             # if a contextlist exists of multiple different "most significant" contexts,
             # that combined contextlist string should already be a separate context in
             # "names:contexts" as created by "kathe.py"
-            sha256list = unique_list(sha256list)
-            # contextlist = ('|').join(sorted(contextlist))
-            newnode = {'id': rdb.zrank(cachename, ssdeep),
-                       'name': contextlist,
-                       'sha256': sha256list,
-                       'ssdeep': '{}'.format(ssdeep),
-                       'main_context': '{}'.format(contextlist[0]),
-                       'groupid': rdb.zrank(contexts, contextlist[0]),
-                       'contexts': contextlist}
+            context = unique_context_list(contextlist)
+            print(f'contextlist: {contextlist}')
+
+            fullcontextlist = ('|').join(context)
+            newnode = {
+                       'id': rdb.zrank(cachename, ssdeep),
+                       'name': context,
+                       'sha256': return_sha256,
+                       'ssdeep': f'{ssdeep}',
+                       'main_context': f'{contextlist}',
+                       'groupid': rdb.zrank(contexts, contextlist),
+                       'contexts': fullcontextlist}
             allssdeepnodes, allssdeepnodescount = cache_action(rdb,
                                                                cachename,
                                                                'nodes',
                                                                newnode,
                                                                'add')
+
             # print(allssdeepnodes, allcontextlist)
-            allssdeepcontexts = unique_list(allcontextlist)
+            allssdeepcontexts = context
             print(allssdeepcontexts)
             # allssdeepcontexts = allcontextlist
             allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
@@ -522,14 +560,14 @@ def contextinfo(rdb, querystring=None):
 
         allssdeepnodes = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepnodes))])
         allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
-        allssdeepcontexts = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepcontexts))])
+        allssdeepcontexts = contexts
 
         return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
 
     else:
         # if searchquery is None, return empty json
         cachename = None
-        return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, sampled)
+        return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
 
 
 @route('/info', method='GET')
@@ -542,10 +580,14 @@ def ssdeepinfo(rdb):
         infolist = {'ssdeep': queryhash}
         allinfo = rdb.smembers('info:ssdeep:{}'.format(queryhash))
         contextlist = []
+        splitlist = []
         sha256list = []
         namelist = []
         for infoline in allinfo:
             # create an attribute to link sha256 hashes to online data sources
+
+            # I think this causes some strange behaviour in the info0 and info1 boxes.
+            # it might be necessary to remove the non-link sha256 from whatever is being used for these -L
             for data_source in data_sources:
                 if data_source in infoline.split(':')[3]:
                     sha256list.append('{}{}'.format(data_sources[data_source],
@@ -555,20 +597,22 @@ def ssdeepinfo(rdb):
             namelist.append(infoline.split(':')[5])
             contextlist.append(infoline.split(':')[3])
 
-        infolist['context'] = ('|').join(sorted(unique_list(contextlist)))
+        # I made a second unique_list function to create an ordered list of unique context terms
+        infolist['context'] = ('|').join(unique_context_list(contextlist))
+        # print(f"debug, contextlist: {contextlist}")
+        # print(f"debug, infolist: {infolist['context']}")
+
         infolist['name'] = ('|').join(sorted(unique_list(namelist)))
         infolist['sha256'] = ('|').join(sorted(unique_list(sha256list)))
         # rv = {'info': infolist}
         rv = [infolist]
         return json.dumps(rv, sort_keys=True)
     else:
-        return HTTPResponse(status=404, body='ssdeep hash not found')
-
+        return HTTPResponse(status=404, body=f'ssdeep hash {queryhash} not found')
 
 @route('/static/<filepath:path>')
 def server_static(filepath):
     return static_file(filepath, root='./static')
-
 
 if __name__ == '__main__':
     run(host=MYHOST, port=8888, debug=True)

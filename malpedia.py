@@ -19,7 +19,6 @@ except ImportError:
     exit()
 from collections import defaultdict
 
-
 # buffered file reading sha256
 def file_sha256(filename):
     """returns the sha256 hash of a file buffered,
@@ -30,7 +29,6 @@ def file_sha256(filename):
             h.update(b)
     return h.hexdigest()
 
-
 # buffered file reading ssdeep
 def file_ssdeep(filename):
     """returns the ssdeep hash of a file buffered,
@@ -40,7 +38,6 @@ def file_ssdeep(filename):
         for b in iter(lambda: f.read(128*1024), b''):
             h.update(b)
     return h.digest()
-
 
 malwaredict = defaultdict(list)
 familydict = defaultdict(list)

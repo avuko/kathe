@@ -18,7 +18,13 @@ except ImportError:
 try:
     import ssdeep
 except ImportError:
-    print('apt install python3-ssdeep')
+    """
+    if you get errors during the installation process, install these:
+    sudo apt-get install python3 python-dev python3-dev build-essential libssl-dev 
+    libffi-dev libxml2-dev libxslt1-dev zlib1g-dev python-pip libfuzzy-dev
+    """
+    print('pip install ssdeep') 
+    #print('apt install python3-ssdeep')
     exit(1)
 
 # XXX clean up order of functions etc, do __main__ to prevent cli stuff
@@ -339,7 +345,7 @@ def add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext):
 
 # call functions to get hashes and metainfo
 if options.filename:
-    inputname = options.inputname
+    inputname = options.filename
     inputsha256 = file_sha256('{}'.format(inputname))
     inputssdeep = file_ssdeep('{}'.format(inputname))
     print('inputname')

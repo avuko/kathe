@@ -19,7 +19,7 @@ vertical-align: top;
 text-align: left;
 }
 #chart {
-        /* display: block; */
+        display: block;
         position: relative;
         left: 0px;
         right: 0px;

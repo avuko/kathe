@@ -359,13 +359,13 @@ function json2table(json, classes) {{
 
 // infoblocks scripts
 // info0
- function kathehover(ssdeep){{
+ function katheclickleft(ssdeep){{
  ssdeepinfo(ssdeep).then(function(info0){{document.getElementById('info0').innerHTML = info0}})
               .catch(error => console.error(error));
 
  }};
 // info1
- function katheclick(ssdeep){{
+ function katheclickright(ssdeep){{
  ssdeepinfo(ssdeep).then(function(info1){{document.getElementById('info1').innerHTML = info1}})
               .catch(error => console.error(error));
  }};
@@ -386,29 +386,36 @@ function json2table(json, classes) {{
         (elem)
         // comment backgroundcolor out for 3d
         .backgroundColor('#fdfdfc')
-        .nodeAutoColorBy('groupid')
+        // improve this to do node color using a groupid => rgb function
+        .nodeAutoColorBy('main_context')
         // linking to target.id makes the link colouring work
         .linkAutoColorBy(d => myData.nodes[d.target].id)
         .linkLabel('ssdeepcompare')
         .linkHoverPrecision('1')
         .linkWidth('value' * 1.1)
         .graphData(myData)
-        .onNodeHover(node => {{
-          if (node !== null ) {{kathehover(node.ssdeep);}}
+        // .onNodeHover(node => {{
+        //  if (node !== null ) {{kathehover(node.ssdeep);}}
+        // }})
+        .onNodeClick(node => {{
+          if (node !== null ) {{
+          katheclickleft(node.ssdeep);
+          // Center/zoom on node
+          // comment zoom stuff out for 3d
+          // It works better if only right-click zooms
+          // Graph.centerAt(node.x, node.y, 1000);
+          // Graph.zoom(8, 2000);
+          }}
+
         }})
         .onNodeRightClick(node => {{
+          if (node !== null ) {{
+          katheclickright(node.ssdeep);
+          // Center/zoom on node
           // comment zoom stuff out for 3d
           Graph.centerAt(node.x, node.y, 1000);
           Graph.zoom(8, 2000);
-        }})
-        .onNodeClick(node => {{
-          if (node !== null ) {{
-          katheclick(node.ssdeep);
-          // Center/zoom on node
-          Graph.centerAt(node.x, node.y, 1000);
-          Graph.zoom(8, 2000);
           }}
-
         }})
 
     }}).catch(err => console.error(err));
@@ -524,9 +531,11 @@ def contextinfo(rdb, querystring=None):
                        'name': context,
                        'sha256': return_sha256,
                        'ssdeep': f'{ssdeep}',
-                       'main_context': f'{contextlist}',
-                       'groupid': rdb.zrank(contexts, contextlist),
+                       # 'main_context': f'{contextlist}',
+                       'main_context': context[0],
+                       'groupid': rdb.zrank(contexts, context[0]),
                        'contexts': fullcontextlist}
+            print('DEBUG', rdb.zrank(contexts, context[0]), contexts, contextlist, fullcontextlist, contexts, context)
             allssdeepnodes, allssdeepnodescount = cache_action(rdb,
                                                                cachename,
                                                                'nodes',
@@ -535,7 +544,7 @@ def contextinfo(rdb, querystring=None):
 
             # print(allssdeepnodes, allcontextlist)
             allssdeepcontexts = context
-            print(allssdeepcontexts)
+            # print(allssdeepcontexts)
             # allssdeepcontexts = allcontextlist
             allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
                                                                     cachename,

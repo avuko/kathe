@@ -19,9 +19,9 @@ for cache in cachemembers:
     cachelink = cachesplit[:]
     cachelink.insert(len(cachelink) - 1, 'links')
     cachecontexts = cachesplit[:]
-    cachecontexts.insert(len(cachelink) - 1, 'contexts')
+    cachecontexts.insert(len(cachecontexts) - 1, 'contexts')
     cachejson = cachesplit[:]
-    cachejson.insert(len(cachelink) - 1, 'json')
+    cachejson.insert(len(cachejson) - 1, 'json')
 
     rdb.delete(':'.join(cachenode))
     print('flushed {}'.format(cachenode))
@@ -31,5 +31,5 @@ for cache in cachemembers:
     print('flushed {}'.format(cachecontexts))
     rdb.delete(':'.join(cachejson))
     print('flushed {}'.format(cachejson))
-    # rdb.delete(':'.join(cachesplit))
+    rdb.delete(':'.join(cachesplit))
     rdb.srem('cachecontrol', ':'.join(cachesplit))

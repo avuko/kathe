@@ -40,8 +40,8 @@ parser.add_option("-c", "--context", dest="context", action='store',
                   metavar="REQUIRED")
 parser.add_option("-r", "--redisdb", dest="redisdb", action="store",
                   type='int',
-                  help='select the redisdb #. to store in. defaults to 14',
-                  metavar="14")
+                  help='select the redisdb #. to store in. defaults to 13',
+                  metavar="13")
 parser.add_option("-f", "--file", dest="filename", action='store',
                   type='string',  help="analyse a file.", metavar="FILE")
 parser.add_option("-i", "--csv", dest="csvfile", action='store',
@@ -75,7 +75,7 @@ else:
 if options.redisdb:
     redisdbnr = options.redisdb
 else:
-    redisdbnr = 14
+    redisdbnr = 13
 
 # Connect to redis.
 # Also, convert all responses to strings, not bytes

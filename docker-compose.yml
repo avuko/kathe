@@ -1,0 +1,24 @@
+version: '3.6'  
+services:  
+  kathe:
+    restart: always
+    image: kathe:latest
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+    ports:
+      - "5000:5000"
+    expose:
+      - "8000"
+    network_mode: "host"
+  redis:
+    restart: always
+    image: redis:3.2-alpine
+    volumes:
+      - redis-data:/data
+    network_mode: "host"
+volumes:
+  redis-data: 

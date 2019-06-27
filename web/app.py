@@ -135,7 +135,6 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
 def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
     """ I needed a way to manage the caches.
     See flushcache.py
-    XXX I think this is not working as a think it does.
     """
     # insert type of cache into cachename
     if info is not None and action == 'add':
@@ -314,7 +313,7 @@ I use Redis for the backend and force-graph.js for the frontend.
   <form action="/kathe/" method="get">
    <fieldset>
      <legend>ssdeep | sha256 | context</legend><p>
-     <input type="text" name="search" id="search" value="{}" onFocus="this.value=''" onBlur="this.value=searchparam"/></p>
+     <input type="text" name="search" id="search" value="{}" onBlur="this.value=searchparam"/></p>
    </fieldset>
   </form>
   </div>

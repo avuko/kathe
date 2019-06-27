@@ -1,5 +1,7 @@
 FROM ubuntu:latest
 
+WORKDIR /web
+
 RUN apt-get update \
   && apt-get install -y python3-pip python3-dev libfuzzy-dev \
   && cd /usr/local/bin \
@@ -14,7 +16,7 @@ ENTRYPOINT ["pipenv"]
 ADD kathe.py /
 ADD ./web/app.py /web/
 ADD ./web/flushcache.py /
-ADD ./web/static /web/
+ADD ./web/static /web/static
 ADD Pipfile /
 ADD Pipfile.lock /
 

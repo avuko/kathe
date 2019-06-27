@@ -8,9 +8,10 @@ import urllib.parse
 import ast
 import bottle_redis as redis
 import sys
+import logging
 
-MYHOST = '127.0.0.1'
-# MYHOST = '0.0.0.0'
+#MYHOST = '127.0.0.1'
+MYHOST = '0.0.0.0'
 
 try:
     REDISDB = sys.argv[1]
@@ -19,7 +20,8 @@ except IndexError:
 
 SORTED_SET_LIMIT = 500
 CONTEXT_SET_LIMIT = 2000
-print('using database #{}'.format(REDISDB))
+
+logging.info('using database #{}'.format(REDISDB))
 
 # data sources of analysed binaries, used under /info/:
 data_sources = {'hybridanalysis': 'https://www.hybrid-analysis.com/sample/',
@@ -41,6 +43,7 @@ data_sources = {'hybridanalysis': 'https://www.hybrid-analysis.com/sample/',
 plugin = redis.RedisPlugin(host='localhost', db=REDISDB, decode_responses=True)
 install(plugin)
 
+
 def roundrobin(*iterables):
     # Recipe credited to George Sakkis
     num_active = len(iterables)
@@ -54,12 +57,14 @@ def roundrobin(*iterables):
             num_active -= 1
             nexts = cycle(islice(nexts, num_active))
 
+
 def unique_list(seq):
     """
     https://www.peterbe.com/plog/fastest-way-to-uniquify-a-list-in-python-3.6
     """
     # modified to remove empty context entries
     return list(dict.fromkeys(s for s in seq if s))
+
 
 def unique_context_list(seq):
     """
@@ -84,10 +89,11 @@ def unique_context_list(seq):
         if len(seq) > 0:
             ucl = unique_list(seq[0].split('|'))
         else:
-            print(f"something weird happened, seq: {seq}")
+            logging.error(f"something weird happened, seq: {seq}")
             return ""
 
     return ucl
+
 
 def get_sortedset_count(rdb, sortedset):
     """return the number of items in a sorted set.
@@ -97,6 +103,7 @@ def get_sortedset_count(rdb, sortedset):
     if sortedset:
         sortedset_index = float(rdb.zcount(sortedset, '-inf', '+inf'))
     return sortedset_index
+
 
 def build_ssdeep_cache(rdb, ssdeep, cachename):
     """return a sorted set of all ssdeeps in a particular cache,
@@ -113,7 +120,7 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
         for ssdeep_key in ssdeep:
             rdb.zadd(cachename, ssdeep_key, get_sortedset_count(rdb, cachename))
     else:
-        print('none')
+        logging.info('none result in build_ssdeep_cache')
     while length < get_sortedset_count(rdb, cachename):
         length = get_sortedset_count(rdb, cachename)
         for ssdeep in rdb.zscan_iter(cachename):
@@ -149,6 +156,7 @@ def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
         cachelength = rdb.scard(cachename)
     return (cachename, cachelength)
 
+
 def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
     # XXX def gottacatchemall(searchquery_type, searchquery_input, ssdeep, sampled):
     """exhaustive function to get all related ssdeep hashes.
@@ -157,7 +165,7 @@ def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
     """
     # get timestamp from latest update
     timestamp = str(rdb.get('timestamp'))
-    print('timestamp: {}'.format(timestamp))
+    logging.debug('timestamp: {}'.format(timestamp))
     if sampled is True:
         # label the cache as a sample
         cachename = 'sample:{}:{}:{}'.format('cache', timestamp, searchquery_input)
@@ -168,14 +176,14 @@ def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
     # This prevents both creating the cache twice,
     # and creating a cache while one is already being created.
     if rdb.sismember('cachecontrol', cachename) and 'sample:' not in cachename:
-        print('{} already exists and is not a sample'.format(cachename))
+        logging.debug('{} already exists and is not a sample'.format(cachename))
         return cachename
 
     elif rdb.sismember('cachecontrol', cachename) and 'sample:' in cachename:
         """Aparently I refresh the cache if it is a sample.
         I wonder if this really works?
         """
-        print('{} already exists and is a sample'.format(cachename))
+        logging.debug('{} already exists and is a sample'.format(cachename))
         for cachetype in [None, 'nodes', 'links', 'json']:
             cache_action(rdb, cachename, cachetype, None, 'delete')
         # input for this is either a single ssdeep string,
@@ -185,12 +193,13 @@ def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
         return cachename
 
     else:
-        print('{} does not exist'.format(cachename))
+        logging.debug('{} does not exist'.format(cachename))
         rdb.sadd('cachecontrol', cachename)
         # input for this is either a single ssdeep string,
         # or a list of ssdeep strings and a cachename
         build_ssdeep_cache(rdb, ssdeep, cachename)
         return cachename
+
 
 def check_verify(rdb, searchquery):
     """ 
@@ -208,10 +217,12 @@ def check_verify(rdb, searchquery):
     else:
         searchtype = False
 
-    #print(f'searchtype: {searchtype}')
+    logging.debug(f'searchtype: {searchtype}')
     return searchtype
 
-def return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled):
+
+def return_search_results(rdb, cachename, allssdeepnodes, 
+                          allssdeeplinks, allssdeepcontexts, sampled):
     """ store search results as json string in redis if is doesn't already
     exist, retrieve from redis and yield results.
     This also creates a "None" json cache, which is fine by me
@@ -219,7 +230,7 @@ def return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssd
     # handling empty queries
     if cachename is None:
         cache_count = 0
-        jsoncachename= "" # can't split on a None object
+        jsoncachename = ""  # can't split on a None object
     else:
         cache_count = get_sortedset_count(rdb, cachename)
         jsoncachename = cachename.split(':')
@@ -231,12 +242,19 @@ def return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssd
         # jsoncachename = "json:{}".format(cachename)
 
     if rdb.exists(jsoncachename):
-        print('json cache exists')
-        print(jsoncachename)
+        logging.debug(f'json cache exists: {jsoncachename}')
         search_results = rdb.get(jsoncachename)
     else:
-        selectioninfo = {"nodecount": '{}'.format(int(cache_count)), "linkcount": '{}'.format(len(allssdeeplinks)), "sample": '{}'.format(sampled).lower()}
-        rv = {'info': selectioninfo, 'nodes': allssdeepnodes, 'links': allssdeeplinks, 'contexts': allssdeepcontexts}
+        selectioninfo = {"nodecount": '{}'.format(int(cache_count)),
+                         "linkcount": '{}'.format(len(allssdeeplinks)),
+                         "sample": '{}'.format(sampled).lower()}
+
+        rv = {'info': selectioninfo,
+              'nodes': allssdeepnodes,
+              'links': allssdeeplinks,
+              'contexts': allssdeepcontexts
+              }
+
         rdb.set(jsoncachename, json.dumps(rv, sort_keys=True))
         search_results = rdb.get(jsoncachename)
 
@@ -269,6 +287,7 @@ object {display: block; width: 60%; height: 50vh; border: 0; overflow: hidden; m
 <!--> <![endif]-->
 </body>
 </html>"""
+
 
 @route('/kathe')
 @route('/kathe/')
@@ -427,6 +446,7 @@ function json2table(json, classes) {{
            urllib.parse.quote_plus(querystring).replace('+', '%2B'))
     return response
 
+
 @route('/search', method='GET')
 @route('/search/', method='GET')
 def contextinfo(rdb, querystring=None):
@@ -443,7 +463,7 @@ def contextinfo(rdb, querystring=None):
 
     if querystring is not None and len(querystring) is not 0:
         searchquery = querystring
-        print(f'searchquery: {querystring}')
+        logging.debug(f'searchquery: {querystring}')
     else:
         searchquery = None
     # here we check and build the list of involved ssdeep hashes
@@ -478,7 +498,7 @@ def contextinfo(rdb, querystring=None):
             # print(ssdeep)
             ssdeep = ssdeep[0]
             alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
-            print(f'DEBUG: ssdeep {ssdeep} alllinks {alllinks}')
+            logging.debug(f'ssdeep {ssdeep} alllinks {alllinks}')
             for k in alllinks:
                 linkssdeep = k[0].split(',')[0]
                 # limit to prevent explosion
@@ -505,7 +525,7 @@ def contextinfo(rdb, querystring=None):
             for infoline in allinfo:
                     return_sha256 = infoline.split(':')[1]
                     context = infoline.split(':')[3]
-                    print(f'context: {context}')
+                    logging.debug(f'context: {context}')
                     # The first infoline will determine the "most significant" context of the ssdeep.
                     # the first item of the contextlist created from the first infoline will be the
                     # most significant context used below.
@@ -523,7 +543,7 @@ def contextinfo(rdb, querystring=None):
             # that combined contextlist string should already be a separate context in
             # "names:contexts" as created by "kathe.py"
             context = unique_context_list(contextlist)
-            print(f'contextlist: {contextlist}')
+            logging.debug(f'contextlist: {contextlist}')
 
             fullcontextlist = ('|').join(context)
             newnode = {
@@ -535,7 +555,15 @@ def contextinfo(rdb, querystring=None):
                        'main_context': context[0],
                        'groupid': rdb.zrank(contexts, context[0]),
                        'contexts': fullcontextlist}
-            print('DEBUG', rdb.zrank(contexts, context[0]), contexts, contextlist, fullcontextlist, contexts, context)
+            
+            logging.debug(rdb.zrank(contexts,
+                                    context[0]),
+                          contexts,
+                          contextlist,
+                          fullcontextlist,
+                          contexts,
+                          context)
+
             allssdeepnodes, allssdeepnodescount = cache_action(rdb,
                                                                cachename,
                                                                'nodes',
@@ -571,12 +599,14 @@ def contextinfo(rdb, querystring=None):
         allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
         allssdeepcontexts = contexts
 
-        return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
+        return return_search_results(rdb, cachename, allssdeepnodes,
+                                     allssdeeplinks, allssdeepcontexts, sampled)
 
     else:
         # if searchquery is None, return empty json
         cachename = None
-        return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
+        return return_search_results(rdb, cachename, allssdeepnodes,
+                                     allssdeeplinks, allssdeepcontexts, sampled)
 
 
 @route('/info', method='GET')
@@ -619,12 +649,14 @@ def ssdeepinfo(rdb):
     else:
         return HTTPResponse(status=404, body=f'ssdeep hash {queryhash} not found')
 
+
 @route('/static/<filepath:path>')
 def server_static(filepath):
     return static_file(filepath, root='./static')
 
+
 if __name__ == '__main__':
-    run(host=MYHOST, port=8888, debug=True)
+    run(host=MYHOST, port=80, debug=True)
 # Run bottle in application mode.
 # Required in order to get the application working with uWSGI!
 else:

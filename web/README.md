@@ -1,11 +1,14 @@
 # Installation
 
-kathe is build around two components: 
+kathe is build around two*) components:
 
 - `kathe.py` a script to create datasets
 - `app.py` a GUI to analyse the dataset based via a webgui/API
 
-## GUI 
+*) This setup, or at least the regular workflow, will change when we add storing of info 
+to the API.
+
+## GUI
 
 The GUI is installed as follows:
 

@@ -10,7 +10,7 @@ import bottle_redis as redis
 import sys
 import logging
 
-#MYHOST = '127.0.0.1'
+# MYHOST = '127.0.0.1'
 MYHOST = '0.0.0.0'
 
 try:
@@ -244,7 +244,9 @@ def return_search_results(rdb, cachename, allssdeepnodes,
         logging.debug(f'json cache exists: {jsoncachename}')
         search_results = rdb.get(jsoncachename)
     else:
-        selectioninfo = {"nodecount": '{}'.format(int(cache_count)),
+
+        selectioninfo = {"dbsize": '{}'.format(rdb.scard("hashes:sha256")),
+                         "nodecount": '{}'.format(int(cache_count)),
                          "linkcount": '{}'.format(len(allssdeeplinks)),
                          "sample": '{}'.format(sampled).lower()}
 
@@ -317,7 +319,7 @@ I use Redis for the backend and force-graph.js for the frontend.
    </fieldset>
   </form>
   </div>
-
+  <div id="setinfo">bla</div>
   <div id="graph"></div>
 <div id="info0">info0</div><div id="info1">info1</div>
  <script>
@@ -340,10 +342,11 @@ I use Redis for the backend and force-graph.js for the frontend.
  return returnstring;
  }}
  </script>
- <script src="/static/2d/force-graph.js"></script>
+ <!-- <script src="/static/2d/force-graph.js"></script> -->
  <!-- <script src="//unpkg.com/force-graph"></script> -->
  <!-- 3d -->
-<!-- <script src="//unpkg.com/3d-force-graph"></script> -->
+ <!-- <script src="//unpkg.com/3d-force-graph"></script> -->
+ <script src="/static/3d/force-graph.js"></script>
  <script>
 // fetch ssdeephash info
 function ssdeepinfo(ssdeep) {{
@@ -388,7 +391,15 @@ function json2table(json, classes) {{
               .catch(error => console.error(error));
  }};
 
+function getsetinfo(setinfodata){{
+    document.getElementById('setinfo').innerHTML =
+    'dbsize: ' + setinfodata.dbsize
+    + '<br />links : ' + setinfodata.linkcount
+    + '<br />nodes : ' + setinfodata.nodecount
+    + '<br />sample: ' + setinfodata.sample
+    ;
 
+}};
  </script>
  <script>
     var graphDiv = document.getElementById("graph");
@@ -399,18 +410,24 @@ function json2table(json, classes) {{
     .then(res => res.json())
     .then((out) => {{
     var myData = out;
+    var setinfo = JSON.parse(JSON.stringify(myData.info));
+    getsetinfo(setinfo);
+    console.log(JSON.stringify(setinfo));
     const elem = document.getElementById('graph');
-    const Graph = ForceGraph( {{ alpha: true }} )
+    const Graph = ForceGraph3D( {{ alpha: true }} )
         (elem)
-        // comment backgroundcolor out for 3d
         .backgroundColor('#fdfdfc')
+        .showNavInfo(false)
         // improve this to do node color using a groupid => rgb function
         .nodeAutoColorBy('main_context')
+        .nodeLabel(d => `<span style="color: #000;">${{d.name}}</span>`)
         // linking to target.id makes the link colouring work
         .linkAutoColorBy(d => myData.nodes[d.target].id)
-        .linkLabel('ssdeepcompare')
+        // .linkLabel('ssdeepcompare')
+        .linkLabel(d => `<span style="color: #000;">${{d.ssdeepcompare}}</span>`)
+
         .linkHoverPrecision('1')
-        .linkWidth('value' * 1.1)
+        .linkWidth('value')
         .graphData(myData)
         // .onNodeHover(node => {{
         //  if (node !== null ) {{kathehover(node.ssdeep);}}
@@ -431,8 +448,8 @@ function json2table(json, classes) {{
           katheclickright(node.ssdeep);
           // Center/zoom on node
           // comment zoom stuff out for 3d
-          Graph.centerAt(node.x, node.y, 1000);
-          Graph.zoom(8, 2000);
+          // Graph.centerAt(node.x, node.y, 1000);
+          // Graph.zoom(8, 2000);
           }}
         }})
 

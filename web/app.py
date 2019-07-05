@@ -44,6 +44,7 @@ plugin = redis.RedisPlugin(host='localhost', db=REDISDB, decode_responses=True)
 install(plugin)
 
 
+
 def roundrobin(*iterables):
     # Recipe credited to George Sakkis
     num_active = len(iterables)
@@ -220,7 +221,7 @@ def check_verify(rdb, searchquery):
     return searchtype
 
 
-def return_search_results(rdb, cachename, allssdeepnodes, 
+def return_search_results(rdb, cachename, allssdeepnodes,
                           allssdeeplinks, allssdeepcontexts, sampled):
     """ store search results as json string in redis if is doesn't already
     exist, retrieve from redis and yield results.
@@ -229,7 +230,7 @@ def return_search_results(rdb, cachename, allssdeepnodes,
     # handling empty queries
     if cachename is None:
         cache_count = 0
-        jsoncachename = ""  # can't split on a None object
+        jsoncachename = "None"  # can't split on a None object
     else:
         cache_count = get_sortedset_count(rdb, cachename)
         jsoncachename = cachename.split(':')
@@ -244,8 +245,8 @@ def return_search_results(rdb, cachename, allssdeepnodes,
         logging.debug(f'json cache exists: {jsoncachename}')
         search_results = rdb.get(jsoncachename)
     else:
-
-        selectioninfo = {"dbsize": '{}'.format(rdb.scard("hashes:sha256")),
+        dbsize = rdb.scard("hashes:sha256")
+        selectioninfo = {"dbsize": '{}'.format(dbsize),
                          "nodecount": '{}'.format(int(cache_count)),
                          "linkcount": '{}'.format(len(allssdeeplinks)),
                          "sample": '{}'.format(sampled).lower()}
@@ -319,7 +320,7 @@ I use Redis for the backend and force-graph.js for the frontend.
    </fieldset>
   </form>
   </div>
-  <div id="setinfo">bla</div>
+  <div id="setinfo"></div>
   <div id="graph"></div>
 <div id="info0">info0</div><div id="info1">info1</div>
  <script>
@@ -476,6 +477,7 @@ def contextinfo(rdb, querystring=None):
     allssdeepcontexts = []
     # selectioninfo = []
     sampled = False
+    dbsize = rdb.scard("hashes:sha256")
 
     if querystring is not None and len(querystring) is not 0:
         searchquery = querystring

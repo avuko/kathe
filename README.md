@@ -1,5 +1,13 @@
 # ssdeep correlation with kathe
 
+## Building kathe
+
+ - Get docker
+ - `docker build . -t kathe:latest`
+ - `docker save -o kathe.img kathe`
+ - `docker image load -i kathe.img`
+ - `docker-compose up -d`
+
 ## kathe.py
 
 `kathe.py` stores ssdeep hashes in Redis in such a way that correlation (ssdeep compares) between all relevant hashes is possible. Because the comparison is done during storage, retrieving all similar ssdeep hashes later is cheap.

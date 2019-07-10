@@ -15,6 +15,7 @@ ENTRYPOINT ["pipenv"]
 
 ADD kathe.py /
 ADD ./web/app.py /web/
+ADD ./web/kathe.py /web/
 ADD ./web/flushcache.py /
 ADD ./web/static /web/static
 ADD Pipfile /
@@ -23,5 +24,5 @@ ADD Pipfile.lock /
 RUN pip install pipenv
 RUN pip install ssdeep
 RUN pipenv install --skip-lock
-#CMD pipenv shell 
+#CMD pipenv shell
 CMD ["run", "/web/app.py"]

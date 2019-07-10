@@ -9,6 +9,7 @@ import ast
 import bottle_redis as redis
 import sys
 import logging
+import kathe
 
 # MYHOST = '127.0.0.1'
 MYHOST = '0.0.0.0'
@@ -16,7 +17,7 @@ MYHOST = '0.0.0.0'
 try:
     REDISDB = sys.argv[1]
 except IndexError:
-    REDISDB = 13
+    REDISDB = 6 
 
 SORTED_SET_LIMIT = 500
 CONTEXT_SET_LIMIT = 2000
@@ -44,7 +45,6 @@ plugin = redis.RedisPlugin(host='localhost', db=REDISDB, decode_responses=True)
 install(plugin)
 
 
-
 def roundrobin(*iterables):
     # Recipe credited to George Sakkis
     num_active = len(iterables)
@@ -69,14 +69,14 @@ def unique_list(seq):
 
 def unique_context_list(seq):
     """
-    alternative implementation to allow for splitting a multiple contexts into one unique context string, 
+    alternative implementation to allow for splitting a multiple contexts into one unique context string,
     preserving order of the various input strings
     """
     ucl = []
     splitseq = []
 
     # check if we have a list of context strings
-    if len(seq)>1:
+    if len(seq) > 1:
         # split sublists
         for i in seq:
             splitseq.append(i.split('|'))
@@ -202,7 +202,7 @@ def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
 
 
 def check_verify(rdb, searchquery):
-    """ 
+    """
     check_verify does two things:
     1) check whether a searched item exists.
        If not, fail without returning user input
@@ -291,8 +291,48 @@ object {display: block; width: 60%; height: 50vh; border: 0; overflow: hidden; m
 </html>"""
 
 
-@route('/kathe')
-@route('/kathe/')
+@route('/add', method='POST')
+@route('/add/', method='POST')
+def upload_handler():
+    """ This route is used to upload new hashes."""
+    try:
+        # parse input data
+        try:
+            data = request.json
+        except ValueError:
+            raise ValueError
+
+        if data is None:
+            raise ValueError
+
+        # extract and validate name
+        try:
+            # if namepattern.match(data['name']) is None:
+            #    raise ValueError
+            info = data['info']
+        except (TypeError, KeyError):
+            raise ValueError
+
+    except ValueError:
+        # if bad request data, return 400 Bad Request
+        response.status = 400
+        return
+
+    except KeyError:
+        # if name already exists, return 409 Conflict
+        response.status = 409
+        return
+
+    # add info
+    kathe.rest_add(info)
+
+    # return 200 Success
+    response.headers['Content-Type'] = 'application/json'
+    return json.dumps({'received': info})
+
+
+@route('/kathe', method='GET')
+@route('/kathe/', method='GET')
 def build_context(querystring=None):
     # def build_context(querystring):
     """ This route provides the main GUI.
@@ -477,7 +517,6 @@ def contextinfo(rdb, querystring=None):
     allssdeepcontexts = []
     # selectioninfo = []
     sampled = False
-    dbsize = rdb.scard("hashes:sha256")
 
     if querystring is not None and len(querystring) is not 0:
         searchquery = querystring
@@ -533,13 +572,12 @@ def contextinfo(rdb, querystring=None):
             ssdeep = ssdeep[0]
             alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
             allinfo = rdb.smembers('info:ssdeep:{}'.format(ssdeep))
-            #print(f'allinfo: {allinfo}')
+            # print(f'allinfo: {allinfo}')
             # names:context is a list with a zscore based on the number of occurences of a certain context
             # and a zrank function on an ordered set, so we can use it to get the index of a context as integer
             # for our grouping
             contexts = 'names:context'
             contextlist = []
-            sha256list = []
             for infoline in allinfo:
                     return_sha256 = infoline.split(':')[1]
                     context = infoline.split(':')[3]
@@ -556,7 +594,6 @@ def contextinfo(rdb, querystring=None):
                     # the new unique_context_list function could be an option here.
                     # i've rewritten this function to use this. -L
                     contextlist.append(context)
-                    
             # if a contextlist exists of multiple different "most significant" contexts,
             # that combined contextlist string should already be a separate context in
             # "names:contexts" as created by "kathe.py"
@@ -564,8 +601,7 @@ def contextinfo(rdb, querystring=None):
             logging.debug(f'contextlist: {contextlist}')
 
             fullcontextlist = ('|').join(context)
-            newnode = {
-                       'id': rdb.zrank(cachename, ssdeep),
+            newnode = {'id': rdb.zrank(cachename, ssdeep),
                        'name': context,
                        'sha256': return_sha256,
                        'ssdeep': f'{ssdeep}',
@@ -573,7 +609,7 @@ def contextinfo(rdb, querystring=None):
                        'main_context': context[0],
                        'groupid': rdb.zrank(contexts, context[0]),
                        'contexts': fullcontextlist}
-            
+
             logging.debug(rdb.zrank(contexts,
                                     context[0]),
                           contexts,
@@ -637,7 +673,6 @@ def ssdeepinfo(rdb):
         infolist = {'ssdeep': queryhash}
         allinfo = rdb.smembers('info:ssdeep:{}'.format(queryhash))
         contextlist = []
-        splitlist = []
         sha256list = []
         namelist = []
         for infoline in allinfo:

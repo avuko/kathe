@@ -17,7 +17,7 @@ MYHOST = '0.0.0.0'
 try:
     REDISDB = sys.argv[1]
 except IndexError:
-    REDISDB = 6 
+    REDISDB = 13
 
 SORTED_SET_LIMIT = 500
 CONTEXT_SET_LIMIT = 2000
@@ -328,7 +328,7 @@ def upload_handler():
 
     # return 200 Success
     response.headers['Content-Type'] = 'application/json'
-    return json.dumps({'received': info})
+    return json.dumps({'ingested_count': len(info)})
 
 
 @route('/kathe', method='GET')
@@ -709,7 +709,7 @@ def server_static(filepath):
 
 
 if __name__ == '__main__':
-    run(host=MYHOST, port=80, debug=True)
+    run(host=MYHOST, port=8000, debug=True)
 # Run bottle in application mode.
 # Required in order to get the application working with uWSGI!
 else:

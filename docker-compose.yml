@@ -1,6 +1,25 @@
-version: '3.6'  
+version: '3.6' 
+
 services:  
+
+  nginx-proxy:
+    restart: always
+    image: nginx:latest
+    container_name: kathe_nginx
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./conf/nginx.conf:/etc/nginx/nginx.conf
+      - ./conf/cert/:/etc/nginx/conf.d/
+    network_mode: host
+    command: [nginx-debug, '-g', 'daemon off;']
+    depends_on: 
+      - kathe
+
   kathe:
+    restart: always
+    container_name: kathe_app
     restart: always
     image: kathe:latest
     depends_on:
@@ -10,15 +29,19 @@ services:
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
     ports:
-      - "5000:5000"
+      - 5000:5000
     expose:
-      - "8000"
-    network_mode: "host"
+      - 8000
+    network_mode: host
+
   redis:
+    restart: always
+    container_name: kathe_redis
     restart: always
     image: redis:3.2-alpine
     volumes:
       - redis-data:/data
-    network_mode: "host"
+    network_mode: host
+
 volumes:
   redis-data: 

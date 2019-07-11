@@ -17,7 +17,7 @@ MYHOST = '0.0.0.0'
 try:
     REDISDB = sys.argv[1]
 except IndexError:
-    REDISDB = 6 
+    REDISDB = 13
 
 SORTED_SET_LIMIT = 500
 CONTEXT_SET_LIMIT = 2000

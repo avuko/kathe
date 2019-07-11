@@ -8,6 +8,9 @@ from datetime import datetime
 import os
 import re
 import unicodedata
+import logging
+
+logger = logging.getLogger()
 
 try:
     import redis
@@ -30,6 +33,8 @@ except ImportError:
 inputname = None
 inputssdeep = None
 inputsha256 = None
+
+# set the DB number to the default value (check app.py, these should match)
 redisdbnr = 13
 
 # Connect to redis.
@@ -193,9 +198,9 @@ def add_info(inputname, inputsha256, inputssdeep, inputcontext):
                                   inputssdeep, inputname, inputcontext))
     # timestamp is used for caching of query results. It is updated after
     # every addition so it never goes stale.
-    print(timestamp())
+    logger.debug(timestamp())
     r.set("timestamp", timestamp())
-    print(r.get("timestamp"))
+    logger.debug(r.get("timestamp"))
 
 
 def get_allsha256_for_ssdeep(ssdeep):
@@ -205,7 +210,7 @@ def get_allsha256_for_ssdeep(ssdeep):
     allsha256s = [allsha256.split(':')[1]
                   for allsha256 in r.smembers('info:ssdeep:{}'.format(ssdeep))]
     allsha256s = str.join(':', set(allsha256s))
-    # print(allsha256s)
+    logger.debug(f"=== DEBUG === : allsha256s: {allsha256s}")
     return allsha256s
 
 
@@ -217,7 +222,7 @@ def get_allcontext_for_ssdeep(ssdeep):
                    for allcontext in
                    r.smembers('info:ssdeep:{}'.format(ssdeep))]
     allcontexts = str.join(':', set(allcontexts))
-    # print(allcontexts)
+    logger.debug(f"=== DEBUG === : allcontexts: {allcontexts}")
     return allcontexts
 
 
@@ -284,9 +289,10 @@ def add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext):
 
 def rest_add(info_object):
     """This function should receive a list of dictionaries.
-Each dictionary must consist of:
-{"inputname": <>, "sha256": <>, "ssdeep": <>, "contexts": [<>, "<>, "<>"]}
-The most important context must be the first in the list."""
+    Each dictionary must consist of:
+    {"inputname": <>, "sha256": <>, "ssdeep": <>, "contexts": [<>, "<>, "<>"]}
+    The most important context must be the first in the list."""
+    logger.debug(f"=== DEBUG === : ingesting info_object: {info_object}")
 
     for rest_info in info_object:
         inputname = clean_name(rest_info['inputname'])

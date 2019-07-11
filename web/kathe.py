@@ -30,7 +30,7 @@ except ImportError:
 inputname = None
 inputssdeep = None
 inputsha256 = None
-redisdbnr = 6
+redisdbnr = 13
 
 # Connect to redis.
 # Also, convert all responses to strings, not bytes

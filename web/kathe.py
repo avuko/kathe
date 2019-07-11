@@ -6,6 +6,7 @@ For the stand alone CLI implementation, see parent directory.
 from datetime import datetime
 # import json
 import os
+import re
 import unicodedata
 
 try:
@@ -29,7 +30,7 @@ except ImportError:
 inputname = None
 inputssdeep = None
 inputsha256 = None
-redisdbnr = 13
+redisdbnr = 6
 
 # Connect to redis.
 # Also, convert all responses to strings, not bytes
@@ -40,6 +41,18 @@ r = redis.StrictRedis('localhost', 6379, db=redisdbnr, charset="utf-8",
 def timestamp():
     ts = int(datetime.now().strftime("%s") + str(datetime.now().microsecond))
     return ts
+
+
+def check_sha256(sha256_string):
+    sha256check = re.compile(r"^[a-f0-9]{64}(:.+)?$", re.IGNORECASE)
+    result = bool(sha256check.match(sha256_string))
+    return result
+
+
+def check_ssdeep(ssdeep_string):
+    ssdeepcheck = re.compile(r"^[0-9]*\:[a-z0-9+/]*\:[a-z0-9+/]*$", re.IGNORECASE)
+    result = bool(ssdeepcheck.match(ssdeep_string))
+    return result
 
 
 def remove_control_characters(s):
@@ -277,8 +290,16 @@ The most important context must be the first in the list."""
 
     for rest_info in info_object:
         inputname = clean_name(rest_info['inputname'])
-        input_sha256 = rest_info['sha256']
-        input_ssdeep = rest_info['ssdeep']
+        if check_sha256(rest_info['sha256']):
+            input_sha256 = rest_info['sha256']
+        else:
+            return False
+        if check_ssdeep(rest_info['ssdeep']):
+            input_ssdeep = rest_info['ssdeep']
+        else:
+            return False
+
         contexts = list(map(lambda x: clean_context(x), rest_info['contexts']))
         input_contexts = ','.join(contexts)
         add_ssdeep_to_db(inputname, input_sha256, input_ssdeep, input_contexts)
+        return True

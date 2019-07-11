@@ -2,14 +2,14 @@
 # from bottle import Bottle
 from bottle import HTTPResponse, response, request, \
     install, run, route, static_file, default_app
-import json
 from itertools import cycle, islice
-import urllib.parse
 import ast
 import bottle_redis as redis
-import sys
-import logging
+import json
 import kathe
+import logging
+import sys
+import urllib.parse
 
 # MYHOST = '127.0.0.1'
 MYHOST = '0.0.0.0'
@@ -300,7 +300,8 @@ def upload_handler():
         try:
             data = request.json
         except ValueError:
-            raise ValueError
+            response.status = 400
+            return
 
         if data is None:
             raise ValueError
@@ -314,8 +315,8 @@ def upload_handler():
             raise ValueError
 
     except ValueError:
-        # if bad request data, return 400 Bad Request
-        response.status = 400
+        # if bad request data, return 422 Unprocessable Entity
+        response.status = 422
         return
 
     except KeyError:
@@ -324,11 +325,14 @@ def upload_handler():
         return
 
     # add info
-    kathe.rest_add(info)
-
-    # return 200 Success
-    response.headers['Content-Type'] = 'application/json'
-    return json.dumps({'received': info})
+    if kathe.rest_add(info):
+        # return 200 Success
+        response.headers['Content-Type'] = 'application/json'
+        return json.dumps({'received': info})
+    else:
+        # Unsupported Media Type
+        response.status = 415
+        return
 
 
 @route('/kathe', method='GET')

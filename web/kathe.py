@@ -161,6 +161,7 @@ def add_info(inputname, inputsha256, inputssdeep, inputcontext):
     linked and retrievable."""
     inputcontext = clean_context(inputcontext)
     splitcontext = inputcontext.split('|')
+    inputsha256 = inputsha256.lower()
 
     r.sadd('info:inputname:{}'.format(inputname),
            'sha256:{}:ssdeep:{}:context:{}'.format(inputsha256,
@@ -233,7 +234,7 @@ def return_results(inputname, inputsha256, inputssdeep, inputcontext):
     last but not least, it siblings (partially matching ssdeep hashes)."""
     info = dict()
     info['inputname'] = inputname
-    info['sha256'] = inputsha256
+    info['sha256'] = inputsha256.lower()
     info['ssdeep'] = inputssdeep
     info['context'] = inputcontext
     info['other_inputnames'] = [inputnames.split(':')[-1]
@@ -248,6 +249,7 @@ def return_results(inputname, inputsha256, inputssdeep, inputcontext):
 def new_hash(inputsha256):
     """ To speed things up, we take a different path if the file is already known.
     return True if new, False if the hash is already known."""
+    inputsha256 = inputsha256.lower()
     if r.sismember("hashes:sha256", '{}'.format(inputsha256)):
         new = False
     else:
@@ -256,6 +258,7 @@ def new_hash(inputsha256):
 
 
 def add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext):
+    inputsha256 = inputsha256.lower()
     # If the file is new, add all information
     if new_hash(inputsha256):
         inputname = clean_name(inputname)
@@ -284,6 +287,7 @@ def add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext):
     # or else, add only the new info
     else:
         inputname = clean_name(inputname)
+        inputsha256 = inputsha256.lower()
         add_info(inputname, inputsha256, inputssdeep, inputcontext)
 
 
@@ -297,7 +301,7 @@ def rest_add(info_object):
     for rest_info in info_object:
         inputname = clean_name(rest_info['inputname'])
         if check_sha256(rest_info['sha256']):
-            input_sha256 = rest_info['sha256']
+            input_sha256 = rest_info['sha256'].lower()
         else:
             return False
         if check_ssdeep(rest_info['ssdeep']):

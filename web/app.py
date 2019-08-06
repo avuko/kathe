@@ -5,43 +5,30 @@ from bottle import HTTPResponse, response, request, \
 from itertools import cycle, islice
 import ast
 import bottle_redis as redis
+import defaults
 import json
 import kathe
 import logging
 import sys
 import urllib.parse
 
-# MYHOST = '127.0.0.1'
-MYHOST = '0.0.0.0'
+KATHE_HOST = defaults.KATHE_HOST
 
 try:
-    REDISDB = sys.argv[1]
+    REDIS_DB = sys.argv[1]
 except IndexError:
-    REDISDB = 13
+    REDIS_DB = defaults.REDIS_DB
 
-SORTED_SET_LIMIT = 500
-CONTEXT_SET_LIMIT = 2000
 
-logging.info('using database #{}'.format(REDISDB))
+SORTED_SET_LIMIT = defaults.SORTED_SET_LIMIT
+CONTEXT_SET_LIMIT = defaults.CONTEXT_SET_LIMIT
+DATA_SOURCES = defaults.DATA_SOURCES
+REDIS_HOST = defaults.REDIS_HOST
+KATHE_PORT = defaults.KATHE_PORT
 
-# data sources of analysed binaries, used under /info/:
-data_sources = {'hybridanalysis': 'https://www.hybrid-analysis.com/sample/',
-                'malpedia': 'https://malpedia.caad.fkie.fraunhofer.de/',
-                'virustotal': 'https://www.virustotal.com/#/file/'}
+logging.info('using database #{}'.format(REDIS_DB))
 
-# XXX testing
-# import json
-# import math
-# import redis
-# REDISDB = 14
-# rdb = redis.StrictRedis(host='localhost', db=REDISDB, decode_responses=True)
-
-# app = application = Bottle(catchall=False)
-# app.DEBUG=True
-# app.debug=True
-# decode responses is important here
-
-plugin = redis.RedisPlugin(host='localhost', db=REDISDB, decode_responses=True)
+plugin = redis.RedisPlugin(host=REDIS_HOST, db=REDIS_DB, decode_responses=True)
 install(plugin)
 
 
@@ -319,10 +306,10 @@ def upload_handler():
         response.status = 422
         return
 
-    except KeyError:
-        # if name already exists, return 409 Conflict
-        response.status = 409
-        return
+#    except KeyError:
+#        # if name already exists, return 409 Conflict
+#        response.status = 409
+#        return
 
     # add info
     if kathe.rest_add(info):
@@ -332,7 +319,9 @@ def upload_handler():
     else:
         # Unsupported Media Type
         response.status = 415
-        return
+        response.headers['Content-Type'] = 'application/json'
+        return json.dumps(info)
+
 
 @route('/kathe', method='GET')
 @route('/kathe/', method='GET')
@@ -358,7 +347,7 @@ I use Redis for the backend and force-graph.js for the frontend.
  <div id="searchform">
   <form action="/kathe/" method="get">
    <fieldset>
-     <legend>ssdeep | sha256 | context</legend><p>
+     <legend>ssdeep | sha256 | context | status: <span id="httpcode"></span></legend><p>
      <input type="text" name="search" id="search" value="{}" onBlur="this.value=searchparam"/></p>
    </fieldset>
   </form>
@@ -369,6 +358,12 @@ I use Redis for the backend and force-graph.js for the frontend.
  <script>
   var searchvalue = decodeURIComponent("{}");
   var unescaped_searchvalue = "{}";
+
+ // function to show fetch status
+ function handleStatus(res_status) {{
+        document.getElementById('httpcode').innerHTML = res_status;
+ }}
+
 
  // function to turn 'http://<something>' strings into hrefs
  function string_to_href(inputstring) {{
@@ -386,16 +381,24 @@ I use Redis for the backend and force-graph.js for the frontend.
  return returnstring;
  }}
  </script>
- <!-- <script src="/static/2d/force-graph.js"></script> -->
+ <script src="/static/2d/force-graph.js"></script>
  <!-- <script src="//unpkg.com/force-graph"></script> -->
  <!-- 3d -->
  <!-- <script src="//unpkg.com/3d-force-graph"></script> -->
- <script src="/static/3d/force-graph.js"></script>
+ <!-- <script src="/static/3d/force-graph.js"></script> -->
  <script>
 // fetch ssdeephash info
 function ssdeepinfo(ssdeep) {{
  return fetch("/info/?ssdeephash=" + encodeURIComponent(ssdeep), {{cache: "no-store"}})
-    .then(response => response.json())
+    // .then(handleErrors)
+    .then(response => {{
+    if(response.ok) {{
+    handleStatus(response.status);
+    return response.json();
+    }} else {{
+    handleStatus(response.status);
+    }}
+    }})
     .then(jsonresponse => json2table(jsonresponse));
 }}
 
@@ -451,28 +454,41 @@ function getsetinfo(setinfodata){{
     var graphwidth =  '98px';
     var graphheight = '98px';
     fetch("/search/?search=" + unescaped_searchvalue, {{cache: "no-store"}})
-    .then(res => res.json())
+    .then(response => {{
+    if(response.ok) {{
+    handleStatus(response.status);
+    return response.json();
+    }} else {{
+    handleStatus(response.status);
+    }}
+    }})
+    // .then(res => res.json())
     .then((out) => {{
     var myData = out;
     var setinfo = JSON.parse(JSON.stringify(myData.info));
     getsetinfo(setinfo);
-    console.log(JSON.stringify(setinfo));
     const elem = document.getElementById('graph');
-    const Graph = ForceGraph3D( {{ alpha: true }} )
+    // const Graph = ForceGraph3D( {{ alpha: true }} )
+    const Graph = ForceGraph( {{ alpha: true }} )
         (elem)
         .backgroundColor('#fdfdfc')
-        .showNavInfo(false)
+        // 3D
+        // .showNavInfo(false)
         // improve this to do node color using a groupid => rgb function
         .nodeAutoColorBy('main_context')
         .nodeLabel(d => `<span style="color: #000;">${{d.name}}</span>`)
         // linking to target.id makes the link colouring work
-        .linkAutoColorBy(d => myData.nodes[d.target].id)
+        // .linkAutoColorBy(d => myData.nodes[d.target].id)
         // .linkLabel('ssdeepcompare')
         .linkLabel(d => `<span style="color: #000;">${{d.ssdeepcompare}}</span>`)
 
         .linkHoverPrecision('1')
         .linkWidth('value')
         .graphData(myData)
+        // should be quicker on 2D
+        // .d3AlphaDecay(0)
+        .d3VelocityDecay(0.12)
+        .cooldownTime(15000)
         // .onNodeHover(node => {{
         //  if (node !== null ) {{kathehover(node.ssdeep);}}
         // }})
@@ -487,13 +503,13 @@ function getsetinfo(setinfodata){{
 
           // 3d zoom
           // Aim at node from outside it
-          const distance = 70;
-          const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
-          Graph.cameraPosition(
-            {{ x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }}, // new position
-            node, // lookAt ({{ x, y, z }})
-            3000  // ms transition duration
-          );
+          // const distance = 70;
+          // const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
+          // Graph.cameraPosition(
+          //  {{ x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }}, // new position
+          //  node, // lookAt ({{ x, y, z }})
+          //  3000  // ms transition duration
+          // );
           }}
 
         }})
@@ -502,12 +518,12 @@ function getsetinfo(setinfodata){{
           katheclickright(node.ssdeep);
           // Center/zoom on node
           // comment zoom stuff out for 3d
-          // Graph.centerAt(node.x, node.y, 1000);
-          // Graph.zoom(8, 2000);
+          Graph.centerAt(node.x, node.y, 1000);
+          Graph.zoom(8, 2000);
           }}
         }})
 
-    }}).catch(err => console.error(err));
+    }}).catch(err => console.log(err));
  </script>
 </body>
 </html>
@@ -693,9 +709,9 @@ def ssdeepinfo(rdb):
 
             # I think this causes some strange behaviour in the info0 and info1 boxes.
             # it might be necessary to remove the non-link sha256 from whatever is being used for these -L
-            for data_source in data_sources:
+            for data_source in DATA_SOURCES:
                 if data_source in infoline.split(':')[3]:
-                    sha256list.append('{}{}'.format(data_sources[data_source],
+                    sha256list.append('{}{}'.format(DATA_SOURCES[data_source],
                                       infoline.split(':')[1]))
                 else:
                     sha256list.append(infoline.split(':')[1])
@@ -722,7 +738,7 @@ def server_static(filepath):
 
 
 if __name__ == '__main__':
-    run(host=MYHOST, port=8000, debug=True)
+    run(host=KATHE_HOST, port=KATHE_PORT, debug=False)
 # Run bottle in application mode.
 # Required in order to get the application working with uWSGI!
 else:

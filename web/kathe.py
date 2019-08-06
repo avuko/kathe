@@ -9,6 +9,7 @@ import os
 import re
 import unicodedata
 import logging
+import defaults
 
 logger = logging.getLogger()
 
@@ -34,12 +35,13 @@ inputname = None
 inputssdeep = None
 inputsha256 = None
 
-# set the DB number to the default value (check app.py, these should match)
-redisdbnr = 13
+# set the DB number and host to the default value
+REDIS_DB = defaults.REDIS_DB
+REDIS_HOST = defaults.REDIS_HOST
 
 # Connect to redis.
 # Also, convert all responses to strings, not bytes
-r = redis.StrictRedis('localhost', 6379, db=redisdbnr, charset="utf-8",
+r = redis.StrictRedis(REDIS_HOST, 6379, db=REDIS_DB, charset="utf-8",
                       decode_responses=True)
 
 

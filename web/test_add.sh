@@ -104,20 +104,25 @@ data6='
 
 
 echo "data1: bad chars in context, should PASS"
-curl -v http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data1}"
+curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data1}"
+echo ""
 
 echo "data2: correct format, should PASS"
-curl -v http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data2}"
+curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data2}"
+echo ""
 
-echo "data3: bad chars in ssddeep, should FAIL"
-curl -v http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data3}"
+echo "data3: bad chars in ssdeep, should FAIL"
+curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data3}"
+echo ""
 
 echo "data4: bad chars in sha256, should FAIL"
-curl -v http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data4}"
+curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data4}"
+echo ""
 
 echo "data5: incorrect json, should FAIL"
-curl -v http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data5}"
+curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data5}"
+echo ""
 
 echo "data6: incorrect format ssdeep, should FAIL"
-curl -v http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data6}"
+curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data6}"
 echo ""

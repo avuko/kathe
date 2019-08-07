@@ -32,6 +32,19 @@ plugin = redis.RedisPlugin(host=REDIS_HOST, db=REDIS_DB, decode_responses=True)
 install(plugin)
 
 
+# AP hash function by Arash Partow
+def aphash(gid):
+    s = str(gid)
+    hash = 0xAAAAAAAA
+    i = 0
+    for c in s:
+        if i % 2 == 0:
+            hash = hash ^ ((hash << 7) ^ ord(c) * (hash >> 3))
+    else:
+        hash = hash ^ (~ ((hash << 11) + (ord(c) ^ (hash >> 5))))
+    return f"#{hex(hash & 0xFFFFFF)[2:]}"
+
+
 def roundrobin(*iterables):
     # Recipe credited to George Sakkis
     num_active = len(iterables)
@@ -385,7 +398,7 @@ I use Redis for the backend and force-graph.js for the frontend.
  <!-- <script src="//unpkg.com/force-graph"></script> -->
  <!-- 3d -->
  <!-- <script src="//unpkg.com/3d-force-graph"></script> -->
- <!-- <script src="/static/3d/force-graph.js"></script> -->
+ <script src="/static/3d/force-graph.js"></script>
  <script>
 // fetch ssdeephash info
 function ssdeepinfo(ssdeep) {{
@@ -441,7 +454,7 @@ function json2table(json, classes) {{
 function getsetinfo(setinfodata){{
     document.getElementById('setinfo').innerHTML =
     'dbsize: ' + setinfodata.dbsize
-    + '<br />links : ' + setinfodata.linkcount
+    + '<br />edges : ' + setinfodata.linkcount
     + '<br />nodes : ' + setinfodata.nodecount
     + '<br />sample: ' + setinfodata.sample
     ;
@@ -475,20 +488,20 @@ function getsetinfo(setinfodata){{
         // 3D
         // .showNavInfo(false)
         // improve this to do node color using a groupid => rgb function
-        .nodeAutoColorBy('main_context')
-        .nodeLabel(d => `<span style="color: #000;">${{d.name}}</span>`)
+        .nodeColor(d => d.color)
+        .nodeLabel(d => d.name)
         // linking to target.id makes the link colouring work
-        // .linkAutoColorBy(d => myData.nodes[d.target].id)
+        // .linkAutoColorBy(d => myData.nodes[d.source].id)
         // .linkLabel('ssdeepcompare')
-        .linkLabel(d => `<span style="color: #000;">${{d.ssdeepcompare}}</span>`)
+        .linkLabel(d => d.ssdeepcompare)
 
         .linkHoverPrecision('1')
         .linkWidth('value')
         .graphData(myData)
         // should be quicker on 2D
         // .d3AlphaDecay(0)
-        .d3VelocityDecay(0.12)
-        .cooldownTime(15000)
+        //.d3VelocityDecay(0.12)
+        //.cooldownTime(15000)
         // .onNodeHover(node => {{
         //  if (node !== null ) {{kathehover(node.ssdeep);}}
         // }})
@@ -497,18 +510,17 @@ function getsetinfo(setinfodata){{
           katheclickleft(node.ssdeep);
           // Center/zoom on node
           // comment zoom stuff out for 3d
-          // It works better if only right-click zooms
-          // Graph.centerAt(node.x, node.y, 1000);
-          // Graph.zoom(8, 2000);
+          Graph.centerAt(node.x, node.y, 1000);
+          Graph.zoom(8, 2000);
 
           // 3d zoom
           // Aim at node from outside it
           // const distance = 70;
           // const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
           // Graph.cameraPosition(
-          //  {{ x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }}, // new position
+          // {{ x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }}, // new position
           //  node, // lookAt ({{ x, y, z }})
-          //  3000  // ms transition duration
+          // 3000  // ms transition duration
           // );
           }}
 
@@ -630,13 +642,15 @@ def contextinfo(rdb, querystring=None):
             logging.debug(f'contextlist: {contextlist}')
 
             fullcontextlist = ('|').join(context)
+            groupid = rdb.zrank(contexts, context[0])
             newnode = {'id': rdb.zrank(cachename, ssdeep),
                        'name': context,
                        'sha256': return_sha256,
                        'ssdeep': f'{ssdeep}',
                        # 'main_context': f'{contextlist}',
                        'main_context': context[0],
-                       'groupid': rdb.zrank(contexts, context[0]),
+                       'groupid': groupid,
+                       'color': aphash(groupid),
                        'contexts': fullcontextlist}
 
             logging.debug(rdb.zrank(contexts,
@@ -667,10 +681,14 @@ def contextinfo(rdb, querystring=None):
                 linkssdeep = k[0].split(',')[0]
                 # limit to prevent explosion
                 if rdb.zscore(cachename, linkssdeep):
-                    newlink = {'source': rdb.zrank(cachename, ssdeep),
-                               'target': rdb.zrank(cachename, linkssdeep),
+                    source = rdb.zrank(cachename, ssdeep)
+                    target = rdb.zrank(cachename, linkssdeep)
+                    newlink = {'source': source,
+                               'target': target,
                                'value': (k[1] / float(10)),
-                               'ssdeepcompare': k[1]}
+                               'ssdeepcompare': k[1],
+                               'color': aphash(source),
+                               'id': f"{source}_{target}"}
                     # only uniques, so no need to verify existence
                     allssdeeplinks, allssdeeplinksscount = cache_action(rdb,
                                                                         cachename,

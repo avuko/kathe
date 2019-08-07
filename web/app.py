@@ -32,7 +32,7 @@ plugin = redis.RedisPlugin(host=REDIS_HOST, db=REDIS_DB, decode_responses=True)
 install(plugin)
 
 
-def aphash(gid):
+def aphash_color(gid):
     # AP hash function by Arash Partow
     s = str(gid)
     hash = 0xAAAAAAAA
@@ -588,7 +588,7 @@ def contextinfo(rdb, querystring=None):
                        'ssdeep': f'{ssdeep}',
                        'main_context': context[0],
                        'groupid': groupid,
-                       'color': aphash(groupid),
+                       'color': aphash_color(groupid),
                        'contexts': fullcontextlist}
 
             logging.debug(rdb.zrank(contexts,
@@ -622,7 +622,7 @@ def contextinfo(rdb, querystring=None):
                                'target': target,
                                'value': (k[1] / float(10)),
                                'ssdeepcompare': k[1],
-                               'color': aphash(source),
+                               'color': aphash_color(source),
                                'id': f"{source}_{target}"}
                     # only uniques, so no need to verify existence
                     allssdeeplinks, allssdeeplinksscount = cache_action(rdb,

@@ -32,8 +32,8 @@ plugin = redis.RedisPlugin(host=REDIS_HOST, db=REDIS_DB, decode_responses=True)
 install(plugin)
 
 
-# AP hash function by Arash Partow
 def aphash(gid):
+    # AP hash function by Arash Partow
     s = str(gid)
     hash = 0xAAAAAAAA
     i = 0
@@ -143,7 +143,6 @@ def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
             cachename = cachename.split(':')
             cachename[-1:-1] = [cachetype]
             cachename = ':'.join(cachename)
-            # print('adding', cachename, info)
         rdb.sadd(cachename, info)
         cachelength = rdb.scard(cachename)
     elif action == 'delete':
@@ -158,7 +157,6 @@ def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
 
 
 def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
-    # XXX def gottacatchemall(searchquery_type, searchquery_input, ssdeep, sampled):
     """exhaustive function to get all related ssdeep hashes.
     This is where the core of the work is done, linking all ssdeeps together,
     with the ssdeep_compare as a score.
@@ -180,9 +178,6 @@ def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
         return cachename
 
     elif rdb.sismember('cachecontrol', cachename) and 'sample:' in cachename:
-        """Aparently I refresh the cache if it is a sample.
-        I wonder if this really works?
-        """
         logging.debug('{} already exists and is a sample'.format(cachename))
         for cachetype in [None, 'nodes', 'links', 'json']:
             cache_action(rdb, cachename, cachetype, None, 'delete')
@@ -239,7 +234,6 @@ def return_search_results(rdb, cachename, allssdeepnodes,
         jsoncachename = cachename.split(':')
         jsoncachename[-1:-1] = ['json']
         jsoncachename = ':'.join(jsoncachename)
-        # jsoncachename = "json:{}".format(cachename)
 
     if rdb.exists(jsoncachename):
         logging.debug(f'json cache exists: {jsoncachename}')
@@ -308,8 +302,6 @@ def upload_handler():
 
         # extract and validate name
         try:
-            # if namepattern.match(data['name']) is None:
-            #    raise ValueError
             info = data['info']
         except (TypeError, KeyError):
             raise ValueError
@@ -318,11 +310,6 @@ def upload_handler():
         # if bad request data, return 422 Unprocessable Entity
         response.status = 422
         return
-
-#    except KeyError:
-#        # if name already exists, return 409 Conflict
-#        response.status = 409
-#        return
 
     # add info
     if kathe.rest_add(info):
@@ -339,7 +326,6 @@ def upload_handler():
 @route('/kathe', method='GET')
 @route('/kathe/', method='GET')
 def build_context(querystring=None):
-    # def build_context(querystring):
     """ This route provides the main GUI.
 It consists of glued together CSS, JavaScript and python.
 I use Redis for the backend and force-graph.js for the frontend.
@@ -475,61 +461,33 @@ function getsetinfo(setinfodata){{
     handleStatus(response.status);
     }}
     }})
-    // .then(res => res.json())
     .then((out) => {{
     var myData = out;
     var setinfo = JSON.parse(JSON.stringify(myData.info));
     getsetinfo(setinfo);
     const elem = document.getElementById('graph');
-    // const Graph = ForceGraph3D( {{ alpha: true }} )
     const Graph = ForceGraph( {{ alpha: true }} )
         (elem)
         .backgroundColor('#fdfdfc')
-        // 3D
-        // .showNavInfo(false)
-        // improve this to do node color using a groupid => rgb function
         .nodeColor(d => d.color)
         .nodeLabel(d => d.name)
-        // linking to target.id makes the link colouring work
-        // .linkAutoColorBy(d => myData.nodes[d.source].id)
-        // .linkLabel('ssdeepcompare')
         .linkLabel(d => d.ssdeepcompare)
 
         .linkHoverPrecision('1')
         .linkWidth('value')
         .graphData(myData)
-        // should be quicker on 2D
-        // .d3AlphaDecay(0)
-        //.d3VelocityDecay(0.12)
-        //.cooldownTime(15000)
-        // .onNodeHover(node => {{
-        //  if (node !== null ) {{kathehover(node.ssdeep);}}
-        // }})
         .onNodeClick(node => {{
           if (node !== null ) {{
           katheclickleft(node.ssdeep);
-          // Center/zoom on node
-          // comment zoom stuff out for 3d
           Graph.centerAt(node.x, node.y, 1000);
           Graph.zoom(8, 2000);
 
-          // 3d zoom
-          // Aim at node from outside it
-          // const distance = 70;
-          // const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
-          // Graph.cameraPosition(
-          // {{ x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }}, // new position
-          //  node, // lookAt ({{ x, y, z }})
-          // 3000  // ms transition duration
-          // );
           }}
 
         }})
         .onNodeRightClick(node => {{
           if (node !== null ) {{
           katheclickright(node.ssdeep);
-          // Center/zoom on node
-          // comment zoom stuff out for 3d
           Graph.centerAt(node.x, node.y, 1000);
           Graph.zoom(8, 2000);
           }}
@@ -593,7 +551,6 @@ def contextinfo(rdb, querystring=None):
         # first we create the cache
         for ssdeep in rdb.zscan_iter(cachename):
             # zrange_iter returns with a tuple (ssdeep,score)
-            # print(ssdeep)
             ssdeep = ssdeep[0]
             alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
             logging.debug(f'ssdeep {ssdeep} alllinks {alllinks}')
@@ -613,7 +570,6 @@ def contextinfo(rdb, querystring=None):
             ssdeep = ssdeep[0]
             alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
             allinfo = rdb.smembers('info:ssdeep:{}'.format(ssdeep))
-            # print(f'allinfo: {allinfo}')
             # names:context is a list with a zscore based on the number of occurences of a certain context
             # and a zrank function on an ordered set, so we can use it to get the index of a context as integer
             # for our grouping
@@ -624,20 +580,7 @@ def contextinfo(rdb, querystring=None):
                     context = infoline.split(':')[3]
                     logging.debug(f'context: {context}')
                     # The first infoline will determine the "most significant" context of the ssdeep.
-                    # the first item of the contextlist created from the first infoline will be the
-                    # most significant context used below.
-                    # get the second last (or the only) element
-                    # probably needs <=, not ==
-                    # this is still an ugly hack to get a single "family context"
-                    # based on location of that "family context" in the original
-                    # kathe contexts list. TODO
-
-                    # the new unique_context_list function could be an option here.
-                    # i've rewritten this function to use this. -L
                     contextlist.append(context)
-            # if a contextlist exists of multiple different "most significant" contexts,
-            # that combined contextlist string should already be a separate context in
-            # "names:contexts" as created by "kathe.py"
             context = unique_context_list(contextlist)
             logging.debug(f'contextlist: {contextlist}')
 
@@ -647,7 +590,6 @@ def contextinfo(rdb, querystring=None):
                        'name': context,
                        'sha256': return_sha256,
                        'ssdeep': f'{ssdeep}',
-                       # 'main_context': f'{contextlist}',
                        'main_context': context[0],
                        'groupid': groupid,
                        'color': aphash(groupid),
@@ -667,10 +609,7 @@ def contextinfo(rdb, querystring=None):
                                                                newnode,
                                                                'add')
 
-            # print(allssdeepnodes, allcontextlist)
             allssdeepcontexts = context
-            # print(allssdeepcontexts)
-            # allssdeepcontexts = allcontextlist
             allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
                                                                     cachename,
                                                                     'contexts',
@@ -713,7 +652,6 @@ def contextinfo(rdb, querystring=None):
 @route('/info', method='GET')
 @route('/info/', method='GET')
 def ssdeepinfo(rdb):
-    # def ssdeepinfo(queryhash):
     queryhash = request.query.ssdeephash
     response.content_type = 'application/json'
     if rdb.sismember('hashes:ssdeep', queryhash):
@@ -738,12 +676,9 @@ def ssdeepinfo(rdb):
 
         # I made a second unique_list function to create an ordered list of unique context terms
         infolist['context'] = ('|').join(unique_context_list(contextlist))
-        # print(f"debug, contextlist: {contextlist}")
-        # print(f"debug, infolist: {infolist['context']}")
 
         infolist['name'] = ('|').join(sorted(unique_list(namelist)))
         infolist['sha256'] = ('|').join(sorted(unique_list(sha256list)))
-        # rv = {'info': infolist}
         rv = [infolist]
         return json.dumps(rv, sort_keys=True)
     else:

@@ -10,6 +10,18 @@
 
 ## kathe.py
 
+```bash
+sudo apt-get install python3-pip
+sudo -HE pip3 install https://github.com/google/closure-linter/zipball/master
+git clone git@github.com:jacomyal/sigma.js.git
+apt install nodejs
+apt install npm
+in sigma.js/: npm install
+npm run build
+mkdir /path/to/kathe/web/static/sigma
+cp -r build /path/to/kathe/web/static/sigma/
+```
+
 `kathe.py` stores ssdeep hashes in Redis in such a way that correlation (ssdeep compares) between all relevant hashes is possible. Because the comparison is done during storage, retrieving all similar ssdeep hashes later is cheap.
 
 `kathe.py` also stores cross-linked info to redis: any of inputname, ssdeep, sha256 and context has pointers to the other info available.
@@ -72,7 +84,7 @@ zrange names:contexts 0 -1
 
 ### Particular inputname
 
-An inputname can be any arbitrary identifying string. In this example I'm using a small sample set of the zekapab malware. Please feel free to abuse this field for any arbitrary identifying string.
+An inputname can be any arbitrary identifying string. In this example I'm using a small sample set of the *zekapab* malware. Please feel free to abuse this field for any arbitrary identifying string.
 
 To get information on an inputname:
 
@@ -90,7 +102,7 @@ smembers info:inputname:binary-147-meta.exe
 
 #### Tip:
 
->  sha256 hashes always have the same format, so you can always access the ssdeep hash in the set by splitting on '`:`' and getting field **3,4,5** (counting from zero).
+>   `info:inputname` always has the same format, so you can always access the ssdeep hash in the set by splitting on '`:`' and getting field **3,4,5** (counting from zero).
 
 ### Particular sha256 hash
 
@@ -104,12 +116,12 @@ As identical input can have many names, this will possibly return a number of (u
 
 ```bash
 smembers info:sha256:19be1aedc36a6f7d1fcbd9c689757d3d09b7dad7136b4f419a45e6187f54f772
-1) "ssdeep:24576:P7AKkolpDEI+UTUqCg5D5WmQW9Ulg/bdG:PblVfP9+gzA:context:apt28|zekapab:filename:1bcf064650aef06d83484d991bdf6750.virobj"
+1) "ssdeep:24576:P7AKkolpDEI+UTUqCg5D5WmQW9Ulg/bdG:PblVfP9+gzA:context:apt28|zekapab:inputname:1bcf064650aef06d83484d991bdf6750.virobj"
 ```
 
 #### Tip:
 
-> Ssdeep strings always have the same format, so you can always access the filename in this string by splitting on '`:`' and getting field **5** (counting from zero).
+> `info:sha256` always has the same format, so you can always access the inputname in this string by splitting on '`:`' and getting field **7** (counting from zero).
 
 
 ### Particular ssdeep hash
@@ -125,26 +137,26 @@ results. Format of the response:
 
 ```bash
 smembers info:ssdeep:24576:P7AKkolpDEI+UTUqCg5D5WmQW9Ulg/bdG:PblVfP9+gzA
-1) "sha256:19be1aedc36a6f7d1fcbd9c689757d3d09b7dad7136b4f419a45e6187f54f772:context:apt28|zekapab:filename:1bcf064650aef06d83484d991bdf6750.virobj"
+1) "sha256:19be1aedc36a6f7d1fcbd9c689757d3d09b7dad7136b4f419a45e6187f54f772:context:apt28|zekapab:inputname:1bcf064650aef06d83484d991bdf6750.virobj"
 ```
 
 #### Tip:
 
->  sha256 hashes always have the same format, so you can always access the filename in this string by splitting on '`:`' and getting field **3** (counting from zero).
+>  `info:ssdeep` always has the same format, so you can always access the contexts in this string by splitting on '`:`' and getting field **3** (counting from zero). Contexts are separated by a "|". 
 
 ### Particular context
 
-You will very likely want to know which files/ssdeeps/filenames appear in a certain context. That is why I added 'context' (and made it a **MUST**).
+You will very likely want to know which files/ssdeeps/inputnames appear in a certain context. That is why I added 'context' (and made it a **MUST**).
 
 Access to all the info in a context is as simple as:
 
 ```bash
 smembers info:context:apt28
- 1) "sha256:e7dd9678b0a1c4881e80230ac716b21a41757648d71c538417755521438576f6:ssdeep:24576:ybvZoVeeYPVvwrWmQFVHaf9P3lgtgZBJJw0OXjCVmXw11:ya6VHal3lgtgPJJw0OXuAXwv:filename:codexgigas_b3086b4d99288d50585d4c07a3fdd0970a9843fc:filecontext:apt28|zekapab"
+ 1) "sha256:e7dd9678b0a1c4881e80230ac716b21a41757648d71c538417755521438576f6:ssdeep:24576:ybvZoVeeYPVvwrWmQFVHaf9P3lgtgZBJJw0OXjCVmXw11:ya6VHal3lgtgPJJw0OXuAXwv:inputname:codexgigas_b3086b4d99288d50585d4c07a3fdd0970a9843fc:inputcontext:apt28|zekapab"
  2) "sha256:7<...>
 ```
 
-## Workflows
+## Kathe workflows
 
 ### Workflow with a "json" line file
 
@@ -179,7 +191,7 @@ After initially working with the "raw" data in redis and some graphviz, I've fou
 
 The app is designed to work *offline*, so from javascript to fonts, everything is bundled locally.
 
-Just unzip app.zip, get the required python modules and you are ready to start. The zip file contains a README.md with instructions on how to set it up with uwsgi, but for day-to-day activities you can just run `./app.py` and work from there.
+Just unzip web.zip, get the required python modules and you are ready to start running `/.app.py` for day-to-day activities.
 
 
 

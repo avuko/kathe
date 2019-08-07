@@ -381,10 +381,6 @@ I use Redis for the backend and force-graph.js for the frontend.
  }}
  </script>
  <script src="/static/2d/force-graph.js"></script>
- <!-- <script src="//unpkg.com/force-graph"></script> -->
- <!-- 3d -->
- <!-- <script src="//unpkg.com/3d-force-graph"></script> -->
- <script src="/static/3d/force-graph.js"></script>
  <script>
 // fetch ssdeephash info
 function ssdeepinfo(ssdeep) {{

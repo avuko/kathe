@@ -101,6 +101,32 @@ data6='
     ]
 }
 '
+data7='
+{
+    "info": [
+        {
+            "contexts": [
+                "trojan.wisdomeyes.16070401.9500-2",
+                "exe",
+                "hybridanalysis"
+            ],
+            "inputname": "94345f337bd59d61678a6d0140603334eba7550e2ca1b9843cbc09b9c9872af2",
+            "sha256": "94345f337bd59d61678a6d0140603334eba7550e2ca1b9843cbc09b9c9872af2",
+            "ssdeep": "768:yU8Uk/935h7OAL/mZbH7jHF8cE3V3hJ/0rm6kpFV8ezy6jNfuP+xhtrfZU9qZU9j:SUkUM/aPHFnW3X+kxBjNSmtrfp2"
+        },
+        {
+            "contexts": [
+                "trojan.wisdomeyes.16070401.9500-3",
+                "exe",
+                "hybridanalysis"
+            ],
+            "inputname": "94345f337bd59d61678a6d0140603334eba7550e2ca1b9843cbc09b9c9872af3",
+            "sha256": "94345f337bd59d61678a6d0140603334eba7550e2ca1b9843cbc09b9c9872af3",
+            "ssdeep": "768:yU8Uk/935h7OAL/mZbH7jHF8cE3V3hJ/0rm6kpFV8ezy6jNfuP+xhtrfZU9qZU9j:SUkUM/aPHFnW3X+kxBjNSmtrfp3"
+        }
+    ]
+}
+'
 
 
 echo "data1: bad chars in context, should PASS"
@@ -125,4 +151,8 @@ echo ""
 
 echo "data6: incorrect format ssdeep, should FAIL"
 curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data6}"
+echo ""
+
+echo "data7: correct format, multiple entries, should PASS"
+curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data7}"
 echo ""

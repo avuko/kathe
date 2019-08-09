@@ -8,14 +8,10 @@ from datetime import datetime
 import os
 import re
 import unicodedata
-import defaults
 import logging
-from logging.handlers import SysLogHandler
+import defaults
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-handler = SysLogHandler(address='/dev/log')
-logger.addHandler(handler)
 
 try:
     import redis
@@ -305,7 +301,6 @@ def rest_add(info_object):
     logger.debug(f"=== DEBUG === : ingesting info_object: {info_object}")
 
     for rest_info in info_object:
-        logger.debug(f"=== DEBUG === : ingesting info_object: {rest_info}")
         inputname = clean_name(rest_info['inputname'])
         if check_sha256(rest_info['sha256']):
             input_sha256 = rest_info['sha256'].lower()
@@ -319,4 +314,4 @@ def rest_add(info_object):
         contexts = list(map(lambda x: clean_context(x), rest_info['contexts']))
         input_contexts = ','.join(contexts)
         add_ssdeep_to_db(inputname, input_sha256, input_ssdeep, input_contexts)
-    return True
+        return True

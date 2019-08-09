@@ -19,13 +19,14 @@ try:
 except IndexError:
     REDIS_DB = defaults.REDIS_DB
 
-CACHE_SET_LIMIT = defaults.CACHE_SET_LIMIT
+
+SORTED_SET_LIMIT = defaults.SORTED_SET_LIMIT
 CONTEXT_SET_LIMIT = defaults.CONTEXT_SET_LIMIT
 DATA_SOURCES = defaults.DATA_SOURCES
 REDIS_HOST = defaults.REDIS_HOST
 KATHE_PORT = defaults.KATHE_PORT
 
-logging.info('kathe: using database #{}'.format(REDIS_DB))
+logging.info('using database #{}'.format(REDIS_DB))
 
 plugin = redis.RedisPlugin(host=REDIS_HOST, db=REDIS_DB, decode_responses=True)
 install(plugin)
@@ -89,7 +90,7 @@ def unique_context_list(seq):
         if len(seq) > 0:
             ucl = unique_list(seq[0].split('|'))
         else:
-            logging.error(f"kathe: something weird happened, seq: {seq}")
+            logging.error(f"something weird happened, seq: {seq}")
             return ""
 
     return ucl
@@ -109,7 +110,7 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
     """return a sorted set of all ssdeeps in a particular cache,
     where the score is the position in the sorted set, effectively creating
     an index of unique ssdeeps.
-    The CACHE_SET_LIMIT is set because otherwise everything comes to a
+    The SORTED_SET_LIMIT is set because otherwise everything comes to a
     grinding halt.
     """
     # I get the length (at this stage always 0) to kick off the iteration
@@ -120,13 +121,13 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
         for ssdeep_key in ssdeep:
             rdb.zadd(cachename, ssdeep_key, get_sortedset_count(rdb, cachename))
     else:
-        logging.info('kathe: none result in build_ssdeep_cache')
+        logging.info('none result in build_ssdeep_cache')
     while length < get_sortedset_count(rdb, cachename):
         length = get_sortedset_count(rdb, cachename)
         for ssdeep in rdb.zscan_iter(cachename):
             ssdeep = ssdeep[0]
             for ssdeeps in list(rdb.zrange(ssdeep, 0, 100)):
-                if get_sortedset_count(rdb, cachename) < CACHE_SET_LIMIT:
+                if get_sortedset_count(rdb, cachename) < SORTED_SET_LIMIT:
                     rdb.zadd(cachename, ssdeeps.split(',')[0],
                              get_sortedset_count(rdb, cachename))
     return cachename
@@ -204,66 +205,38 @@ def check_verify(rdb, searchquery):
     """
     if rdb.zrank('names:context', searchquery) is not None:
         searchtype = 'context'
-        logging.debug(f'kathe: searchtype: {searchtype}')
     elif rdb.sismember('hashes:ssdeep', searchquery):
         searchtype = 'ssdeep'
-        logging.debug(f'kathe: searchtype: {searchtype}')
     elif rdb.sismember('hashes:sha256', searchquery):
         searchtype = 'sha256'
-        logging.debug(f'kathe: searchtype: {searchtype}')
     else:
         searchtype = False
-        logging.debug(f'kathe: searchtype: {searchtype}')
+
+    logging.debug(f'searchtype: {searchtype}')
     return searchtype
-
-
-def check_cache(rdb, searchquery):
-    cachename = False
-    # XXX I need to check previous caches right here, before any work is done
-    timestamp = str(rdb.get('timestamp'))
-    check_cachename = f'cache:{timestamp}:{searchquery}'
-    # check if cache does not already exist
-    # if not, create a cache name and add it to the cachecontrol.
-    # This prevents both creating the cache twice,
-    # and creating a cache while one is already being created.
-    # We have decided against deleting sampled caches
-    if rdb.sismember('cachecontrol', check_cachename):
-        logging.debug(f'kathe: {check_cachename} already exists')
-        cachename = check_cachename
-
-    elif rdb.sismember('cachecontrol', f'sample:{check_cachename}'):
-        logging.debug(f'kathe: sample:{check_cachename} already exists')
-        cachename = f'sample:{check_cachename}'
-
-    else:
-        logging.debug(f'kathe: {check_cachename} does not exist')
-
-    return(cachename)
 
 
 def return_search_results(rdb, cachename, allssdeepnodes,
                           allssdeeplinks, allssdeepcontexts, sampled):
-    """ store search results as a json string in redis if is doesn't already
+    """ store search results as json string in redis if is doesn't already
     exist, retrieve from redis and yield results.
     This also creates a "None" json cache, which is fine by me
     """
     # handling empty queries
-    if cachename is None or cachename is False:
+    if cachename is None:
         cache_count = 0
         jsoncachename = "None"  # can't split on a None object
     else:
-        # goes into info
         cache_count = get_sortedset_count(rdb, cachename)
+        jsoncachename = cachename.split(':')
 
         # format json cache name like link and nodes caches
         jsoncachename = cachename.split(':')
         jsoncachename[-1:-1] = ['json']
         jsoncachename = ':'.join(jsoncachename)
-        if sampled:
-            jsoncachename = f'sample:{jsoncachename}'
 
     if rdb.exists(jsoncachename):
-        logging.debug(f'kathe: json cache exists: {jsoncachename}')
+        logging.debug(f'json cache exists: {jsoncachename}')
         search_results = rdb.get(jsoncachename)
     else:
         dbsize = rdb.scard("hashes:sha256")
@@ -284,16 +257,7 @@ def return_search_results(rdb, cachename, allssdeepnodes,
     yield search_results
 
 
-def create_sample_cache(rdb, cachename):
-            sample_cachename = f'sample:{cachename}'
-            rdb.rename(cachename, sample_cachename)
-            rdb.sadd('cachecontrol', sample_cachename)
-            rdb.srem('cachecontrol', cachename)
-            logging.debug(f'kathe: renamed cache to {sample_cachename}')
-            return sample_cachename
-
 # web service routes begin here
-
 
 @route('/')
 def hello():
@@ -539,141 +503,140 @@ function getsetinfo(setinfodata){{
 @route('/search/', method='GET')
 def contextinfo(rdb, querystring=None):
     response.content_type = 'application/json'
+    # def contextinfo(querystring):
     querystring = request.query.search
     contexts = 'names:context'
+    # allcontexts = []
     allssdeepnodes = []
     allssdeeplinks = []
     allssdeepcontexts = []
+    # selectioninfo = []
     sampled = False
 
     if querystring is not None and len(querystring) is not 0:
         searchquery = querystring
-        logging.debug(f'kathe: searchquery: {querystring}')
+        logging.debug(f'searchquery: {querystring}')
     else:
         searchquery = None
     # here we check and build the list of involved ssdeep hashes
     if searchquery is not None:
         if check_verify(rdb, searchquery) == 'ssdeep':
-            # XXX needs SET_LIMIT
             searchquery_input = searchquery
+            cachename = gottacatchemall(rdb, 'ssdeep', searchquery_input, searchquery, sampled)
         elif check_verify(rdb, searchquery) == 'sha256':
-            # XXX needs SET_LIMIT
+            # if the sha is the same, the ssdeep is certainly the same
+            # as a result, this query will never "explode"
             searchquery_input = searchquery
             searchquery = (':').join([ssdeeps.split(':')[1:4] for ssdeeps in list(rdb.smembers('info:sha256:{}'.format(searchquery)))][0])
+            cachename = gottacatchemall(rdb, 'sha256', searchquery_input, searchquery, sampled)
         elif check_verify(rdb, searchquery) == 'context':
             searchquery_input = searchquery
             # contexts can contain (very) large sets of ssdeeps.
             # To prevent "explosion", we set a limit on the (random) sample.
-            if rdb.scard('info:context:{}'.format(searchquery)) >= CONTEXT_SET_LIMIT:
+            if rdb.scard('info:context:{}'.format(searchquery)) > CONTEXT_SET_LIMIT:
                 sampled = True
-                logging.debug('kathe: CONTEXT_SET_LIMIT hit')
             searchquery = [ssdeeps.split(':')[3:6] for ssdeeps in list(rdb.srandmember('info:context:{}'.format(searchquery), CONTEXT_SET_LIMIT))]
             searchquery = [(':').join(splitted) for splitted in searchquery]
             # searchquery is now a list of ssdeep(s)
+            cachename = gottacatchemall(rdb, 'context', searchquery_input, searchquery, sampled)
         else:
             # return empty values
             cachename = None
             return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
 
-        cachename = gottacatchemall(rdb, 'ssdeep', searchquery_input, searchquery)
-        if cachename:
-            # we are done and simply return the results
-            return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
-        else:
-            # first we create the cache
-            for ssdeep in rdb.zscan_iter(cachename):
-                # zrange_iter returns with a tuple (ssdeep,score)
-                ssdeep = ssdeep[0]
-                alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
-                # logging.debug(f'ssdeep {ssdeep} alllinks {alllinks}')
-                for k in alllinks:
-                    linkssdeep = k[0].split(',')[0]
-                    # limit to prevent explosion
-                    if get_sortedset_count(rdb, cachename) < (CACHE_SET_LIMIT):
-                        if rdb.zscore(cachename, linkssdeep) is not None:
-                            rdb.zadd(cachename, linkssdeep, get_sortedset_count(rdb, cachename))
-                    else:
-                        # we have hit max, report the selection is a sample
-                        logging.debug(f'kathe: CACHE_SET_LIMIT hit: {get_sortedset_count(rdb, cachename)}')
-                        sampled = True
-                        break
+        # first we create the cache
+        for ssdeep in rdb.zscan_iter(cachename):
+            # zrange_iter returns with a tuple (ssdeep,score)
+            ssdeep = ssdeep[0]
+            alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
+            logging.debug(f'ssdeep {ssdeep} alllinks {alllinks}')
+            for k in alllinks:
+                linkssdeep = k[0].split(',')[0]
+                # limit to prevent explosion
+                if get_sortedset_count(rdb, cachename) < (SORTED_SET_LIMIT):
+                    if rdb.zscore(cachename, linkssdeep) is not None:
+                        rdb.zadd(cachename, linkssdeep, get_sortedset_count(rdb, cachename))
+                # we have hit max, report the selection is a sample
+                else:
+                    sampled = True
 
-                if sampled:
-                    break
+        # then we add context and links
+        for ssdeep in rdb.zscan_iter(cachename):
+            # zrange_iter returns with a tuple (ssdeep,score)
+            ssdeep = ssdeep[0]
+            alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
+            allinfo = rdb.smembers('info:ssdeep:{}'.format(ssdeep))
+            # names:context is a list with a zscore based on the number of occurences of a certain context
+            # and a zrank function on an ordered set, so we can use it to get the index of a context as integer
+            # for our grouping
+            contexts = 'names:context'
+            contextlist = []
+            for infoline in allinfo:
+                    return_sha256 = infoline.split(':')[1]
+                    context = infoline.split(':')[3]
+                    logging.debug(f'context: {context}')
+                    # The first infoline will determine the "most significant" context of the ssdeep.
+                    contextlist.append(context)
+            context = unique_context_list(contextlist)
+            logging.debug(f'contextlist: {contextlist}')
 
-            # then we add context and links
-            for ssdeep in rdb.zscan_iter(cachename):
-                # zrange_iter returns with a tuple (ssdeep,score)
-                ssdeep = ssdeep[0]
-                alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
-                allinfo = rdb.smembers('info:ssdeep:{}'.format(ssdeep))
-                # names:context is a list with a zscore based on the number of occurences of a certain context
-                # and a zrank function on an ordered set, so we can use it to get the index of a context as integer
-                # for our grouping
-                contexts = 'names:context'
-                contextlist = []
-                for infoline in allinfo:
-                        return_sha256 = infoline.split(':')[1]
-                        context = infoline.split(':')[3]
-                        # logging.debug(f'context: {context}')
-                        # The first infoline will determine the "most significant" context of the ssdeep.
-                        contextlist.append(context)
-                context = unique_context_list(contextlist)
-                # logging.debug(f'contextlist: {contextlist}')
+            fullcontextlist = ('|').join(context)
+            groupid = rdb.zrank(contexts, context[0])
+            newnode = {'id': rdb.zrank(cachename, ssdeep),
+                       'name': context,
+                       'sha256': return_sha256,
+                       'ssdeep': f'{ssdeep}',
+                       'main_context': context[0],
+                       'groupid': groupid,
+                       'color': aphash_color(groupid),
+                       'contexts': fullcontextlist}
 
-                fullcontextlist = ('|').join(context)
-                groupid = rdb.zrank(contexts, context[0])
-                newnode = {'id': rdb.zrank(cachename, ssdeep),
-                           'name': context,
-                           'sha256': return_sha256,
-                           'ssdeep': f'{ssdeep}',
-                           'main_context': context[0],
-                           'groupid': groupid,
-                           'color': aphash_color(groupid),
-                           'contexts': fullcontextlist}
+            logging.debug(rdb.zrank(contexts,
+                                    context[0]),
+                          contexts,
+                          contextlist,
+                          fullcontextlist,
+                          contexts,
+                          context)
 
-                allssdeepnodes, allssdeepnodescount = cache_action(rdb,
-                                                                   cachename,
-                                                                   'nodes',
-                                                                   newnode,
-                                                                   'add'
-                                                                   )
+            allssdeepnodes, allssdeepnodescount = cache_action(rdb,
+                                                               cachename,
+                                                               'nodes',
+                                                               newnode,
+                                                               'add')
 
-                allssdeepcontexts = context
-                allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
+            allssdeepcontexts = context
+            allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
+                                                                    cachename,
+                                                                    'contexts',
+                                                                    newnode,
+                                                                    'add')
+
+            for k in alllinks:
+                linkssdeep = k[0].split(',')[0]
+                # limit to prevent explosion
+                if rdb.zscore(cachename, linkssdeep):
+                    source = rdb.zrank(cachename, ssdeep)
+                    target = rdb.zrank(cachename, linkssdeep)
+                    newlink = {'source': source,
+                               'target': target,
+                               'value': (k[1] / float(10)),
+                               'ssdeepcompare': k[1],
+                               'color': aphash_color(source),
+                               'id': f"{source}_{target}"}
+                    # only uniques, so no need to verify existence
+                    allssdeeplinks, allssdeeplinksscount = cache_action(rdb,
                                                                         cachename,
-                                                                        'contexts',
-                                                                        newnode,
-                                                                        'add'
-                                                                        )
+                                                                        'links',
+                                                                        newlink,
+                                                                        'add')
 
-                for k in alllinks:
-                    linkssdeep = k[0].split(',')[0]
-                    # limit to prevent explosion
-                    if rdb.zscore(cachename, linkssdeep):
-                        source = rdb.zrank(cachename, ssdeep)
-                        target = rdb.zrank(cachename, linkssdeep)
-                        newlink = {'source': source,
-                                   'target': target,
-                                   'value': (k[1] / float(10)),
-                                   'ssdeepcompare': k[1],
-                                   'color': aphash_color(source),
-                                   'id': f"{source}_{target}"}
-                        # only uniques, so no need to verify existence
-                        allssdeeplinks, allssdeeplinksscount = cache_action(rdb,
-                                                                            cachename,
-                                                                            'links',
-                                                                            newlink,
-                                                                            'add'
-                                                                            )
+        allssdeepnodes = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepnodes))])
+        allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
+        allssdeepcontexts = contexts
 
-            allssdeepnodes = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepnodes))])
-            allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
-            allssdeepcontexts = contexts
-
-            logging.debug(f'kathe: {cachename} search results returned.')
-            return return_search_results(rdb, cachename, allssdeepnodes,
-                                         allssdeeplinks, allssdeepcontexts, sampled)
+        return return_search_results(rdb, cachename, allssdeepnodes,
+                                     allssdeeplinks, allssdeepcontexts, sampled)
 
     else:
         # if searchquery is None, return empty json
@@ -724,7 +687,7 @@ def server_static(filepath):
 
 
 if __name__ == '__main__':
-    run(host=KATHE_HOST, port=KATHE_PORT, debug=True)
+    run(host=KATHE_HOST, port=KATHE_PORT, debug=False)
 # Run bottle in application mode.
 # Required in order to get the application working with uWSGI!
 else:

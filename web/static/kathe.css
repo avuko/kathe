@@ -9,16 +9,8 @@ body {
   }
 
 #setinfo {
-  display: block;
   position: absolute;
-  right: 0px;
-  top: 0px;
-  margin-right: 0;
-  margin-top: 0;
-  border: solid 1px #999;
-  background-color: none transparent;
-  z-index: 999;
-  font-family: 'Fira Mono'; font-size: large;
+  z-index: 1;
 }
 
 p {
@@ -72,50 +64,31 @@ width: 50vw;
   z-index: 0;
   display: inline-block;
   width:  100vw;
-  height: 90vh;
+  height: 70vh;
   border: 0;
   margin: 0;
   top: 0;
   background: none transparent;
 }
 
-
 #info0 {
   z-index: 1;
-  display: inline-block;
   width: 50%;
+  min-height: 10vw;
   font-size: smaller;
   line-height: 1.2;
-  height: 10em;
-  border: solid 1px #999;
-  background-color: #f9f9f9;
   position: fixed;
-  bottom: 0;
-  left: 1px;
-  padding: 0;
-  margin: 0;
-  padding: 2px;
-  margin: 0;
   overflow-y: scroll;
   overflow-x: hidden;
 }
 
 #info1 {
   z-index: 1;
-  display: inline-block;
   width: 50%;
+  min-height: 10vw;
   font-size: smaller;
   line-height: 1.2;
-  height: 10em;
-  border: solid 1px #999;
-  background-color: #f9f9f9;
   position: fixed;
-  bottom: 0;
-  right: 1px;
-  padding: 2px;
-  margin: 0;
-  opacity: 1;
   overflow-y: scroll;
   overflow-x: hidden;
-}
-
+} 

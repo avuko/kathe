@@ -4,12 +4,15 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+pylint = "*"
+autopep8 = "*"
 
 [packages]
 redis = "<=3.*"
 bottle-redis = "*"
 bottle = "*"
 ssdeep = "*"
+cd = "*"
 
 [requires]
 python_version = "3.6"

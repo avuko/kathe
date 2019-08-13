@@ -1,28 +1,13 @@
-body {
-  font-family: 'Fira Sans';
-  font-weight: 300;
-  font-size: large;
-  background-color: #fdfdfc;
-  border: 0;
-  margin: 0;
-  overflow: hidden;
-  }
-
 #setinfo {
   position: absolute;
   z-index: 1;
 }
 
-p {
-  font-family: 'Fira Sans';
-  font-weight: 300;
-  font-size: large;
-  background: none transparent;}
-
 td {
 vertical-align: top;
 text-align: left;
 }
+
 #chart {
         display: block;
         position: relative;
@@ -32,28 +17,12 @@ text-align: left;
         bottom: 0px;
 }
 
-#ssdeepinfo, #ssdeephash, h1, input, select, textarea, a {
-font-family: 'Fira Mono'; font-size: large;
-}
-fieldset, textarea, input, select {
-border: solid 1px #999;
-background-color:#f9f9f9;
-}
-
 #searchform {
 background: none transparent;
 position: fixed;
 top: 0;
 left:0;
 z-index: 1;
-}
-legend {
-background: none #fdfdfc;
-}
-
-form {
-padding-top: 1vh;
-display:block;
 }
 
 input {
@@ -73,10 +42,7 @@ width: 50vw;
 
 #info0 {
   z-index: 1;
-  width: 50%;
-  min-height: 10vw;
   font-size: smaller;
-  line-height: 1.2;
   position: fixed;
   overflow-y: scroll;
   overflow-x: hidden;
@@ -84,10 +50,7 @@ width: 50vw;
 
 #info1 {
   z-index: 1;
-  width: 50%;
-  min-height: 10vw;
   font-size: smaller;
-  line-height: 1.2;
   position: fixed;
   overflow-y: scroll;
   overflow-x: hidden;

@@ -14,8 +14,8 @@
     </script>
     <div class="container-fluid">
 
-        <div class="row">
-            <div class="col-11">
+        <div class="row bg-light">
+            <div class="col">
                 <div class="form-group">
                     <form action="/kathe/" method="get">
                         <fieldset>
@@ -27,9 +27,7 @@
                         </fieldset>
                     </form>
                 </div>
-            </div>
-            <div class="col">
-                <div class=".list-group-flush" id="setinfo"></div>
+                <div class="align-items-center" id="setinfo"></div>
             </div>
         </div>
 
@@ -39,10 +37,10 @@
 
         <div class="row">
             <div class="col p-0">
-                <div class="card card-body" id="info0">info0</div>
+                <div class="card card-body h-100 w-50" id="info0">info0</div>
             </div>
             <div class="col p-0">
-                <div class="card card-body" id="info1">info1</div>
+                <div class="card card-body h-100 w-50" id="info1">info1</div>
             </div>      
         </div>
 
@@ -158,10 +156,10 @@
         function getsetinfo(setinfodata) {
             {
                 document.getElementById('setinfo').innerHTML =
-                    '<li class="list-group-item">dbsize: ' + setinfodata.dbsize + '</li>'
-                    + '<li class="list-group-item">edges : ' + setinfodata.linkcount + '</li>'
-                    + '<li class="list-group-item">nodes : ' + setinfodata.nodecount + '</li>'
-                    + '<li class="list-group-item">sample: ' + setinfodata.sample + '</li>'
+                    'dbsize: ' + setinfodata.dbsize + ' | '
+                    + 'edges : ' + setinfodata.linkcount + ' | '
+                    + 'nodes : ' + setinfodata.nodecount + ' | '
+                    + 'sample: ' + setinfodata.sample
                     ;
 
             }

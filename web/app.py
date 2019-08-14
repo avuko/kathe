@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # from bottle import Bottle
+import os
 import ast
 import json
 import logging
@@ -9,7 +10,7 @@ from itertools import cycle, islice
 
 import bottle_redis as redis
 from bottle import (HTTPResponse, default_app, install, request, response,
-                    route, run, static_file, template)
+                    route, run, static_file, template, TEMPLATE_PATH)
 
 import defaults
 import kathe
@@ -31,6 +32,9 @@ logging.info('using database #{}'.format(REDIS_DB))
 plugin = redis.RedisPlugin(host=REDIS_HOST, db=REDIS_DB, decode_responses=True)
 install(plugin)
 
+base_path = os.path.abspath(os.path.dirname(__file__))
+template_path = os.path.join(base_path, 'templates')
+TEMPLATE_PATH.insert(0, template_path)
 
 def aphash_color(gid):
     # AP hash function by Arash Partow
@@ -264,7 +268,7 @@ def return_search_results(rdb, cachename, allssdeepnodes,
 @route('/')
 def hello():
     """ Welcome message, redirects to the main gui """
-    return template('./templates/index.html')
+    return template('./index.html')
 
 
 @route('/add', method='POST')
@@ -313,7 +317,7 @@ def build_context(querystring=None):
     """
     querystring = request.query.search
     
-    return template('./templates/kathe.html', 
+    return template('./kathe.html', 
                     querystring=urllib.parse.quote_plus(querystring), 
                     querystring2=urllib.parse.quote_plus(querystring).replace('+', '%2B')
                     )
@@ -503,7 +507,7 @@ def ssdeepinfo(rdb):
 
 @route('/static/<filepath:path>')
 def server_static(filepath):
-    return static_file(filepath, root='./static')
+    return static_file(filepath, root=os.path.join(base_path, 'static'))
 
 
 if __name__ == '__main__':

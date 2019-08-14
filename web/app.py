@@ -118,7 +118,8 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
     grinding halt.
     """
     # I get the length (at this stage always 0) to kick off the iteration
-    length = rdb.zcount(cachename, '-inf', '+inf')
+    length = 0
+
     if type(ssdeep) is str:
         rdb.zadd(cachename, ssdeep, get_sortedset_count(rdb, cachename))
     elif type(ssdeep) is list:
@@ -126,6 +127,7 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
             rdb.zadd(cachename, ssdeep_key, get_sortedset_count(rdb, cachename))
     else:
         logging.info('none result in build_ssdeep_cache')
+
     while length < get_sortedset_count(rdb, cachename):
         length = get_sortedset_count(rdb, cachename)
         for ssdeep in rdb.zscan_iter(cachename):
@@ -134,6 +136,7 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
                 if get_sortedset_count(rdb, cachename) < SORTED_SET_LIMIT:
                     rdb.zadd(cachename, ssdeeps.split(',')[0],
                              get_sortedset_count(rdb, cachename))
+                             
     return cachename
 
 
@@ -262,9 +265,72 @@ def return_search_results(rdb, cachename, allssdeepnodes,
 
     yield search_results
 
+  
+def build_cachename(rdb, searchquery):
+    """
+    Check and find the cachename for a given search query
+    """
 
+    sampled = False
+
+    # check for invalid input
+    if (searchquery == None) or (rdb == None):
+        return None
+
+    searchquery_input = searchquery
+
+    if check_verify(rdb, searchquery) == 'ssdeep':
+        cachename = gottacatchemall(
+            rdb, 'ssdeep', searchquery_input, searchquery, sampled)
+
+    elif check_verify(rdb, searchquery) == 'sha256':
+        # if the sha is the same, the ssdeep is certainly the same
+        # as a result, this query will never "explode"
+        searchquery = (':').join([ssdeeps.split(':')[1:4] for ssdeeps in list(
+            rdb.smembers('info:sha256:{}'.format(searchquery)))][0])
+        cachename = gottacatchemall(
+            rdb, 'sha256', searchquery_input, searchquery, sampled)
+
+    elif check_verify(rdb, searchquery) == 'context':
+        # contexts can contain (very) large sets of ssdeeps.
+        # To prevent "explosion", we set a limit on the (random) sample.
+        if rdb.scard('info:context:{}'.format(searchquery)) > CONTEXT_SET_LIMIT:
+            sampled = True
+        searchquery = [ssdeeps.split(':')[3:6] for ssdeeps in list(
+            rdb.srandmember('info:context:{}'.format(searchquery), CONTEXT_SET_LIMIT))]
+        searchquery = [(':').join(splitted) for splitted in searchquery]
+        # searchquery is now a list of ssdeep(s)
+        cachename = gottacatchemall(
+            rdb, 'context', searchquery_input, searchquery, sampled)
+    else:
+        cachename = None
+
+    return cachename
+
+
+def create_cache(rdb, cachename):
+    """
+    Create a cache based on a previously set cachename
+    """
+    for ssdeep in rdb.zscan_iter(cachename):
+        # zrange_iter returns with a tuple (ssdeep,score)
+        ssdeep = ssdeep[0]
+        alllinks = rdb.zrangebyscore(
+            '{}'.format(ssdeep), 0, 100, withscores=True)
+        logging.debug(f'ssdeep {ssdeep} alllinks {alllinks}')
+        for k in alllinks:
+            linkssdeep = k[0].split(',')[0]
+            # limit to prevent explosion
+            if get_sortedset_count(rdb, cachename) < (SORTED_SET_LIMIT):
+                if rdb.zscore(cachename, linkssdeep) is not None:
+                    rdb.zadd(cachename, linkssdeep,
+                             get_sortedset_count(rdb, cachename))
+            # we have hit the max
+            else:
+                return
+
+                
 # web service routes begin here
-
 @route('/')
 def hello():
     """ Welcome message, redirects to the main gui """
@@ -327,146 +393,115 @@ def build_context(querystring=None):
 @route('/search/', method='GET')
 def contextinfo(rdb, querystring=None):
     response.content_type = 'application/json'
-    # def contextinfo(querystring):
+
     querystring = request.query.search
     contexts = 'names:context'
-    # allcontexts = []
+
     allssdeepnodes = []
     allssdeeplinks = []
     allssdeepcontexts = []
-    # selectioninfo = []
+
     sampled = False
+    cachename = None
 
     if querystring is not None and len(querystring) is not 0:
         searchquery = querystring
         logging.debug(f'searchquery: {querystring}')
     else:
-        searchquery = None
-    # here we check and build the list of involved ssdeep hashes
-    if searchquery is not None:
-        if check_verify(rdb, searchquery) == 'ssdeep':
-            searchquery_input = searchquery
-            cachename = gottacatchemall(rdb, 'ssdeep', searchquery_input, searchquery, sampled)
-        elif check_verify(rdb, searchquery) == 'sha256':
-            # if the sha is the same, the ssdeep is certainly the same
-            # as a result, this query will never "explode"
-            searchquery_input = searchquery
-            searchquery = (':').join([ssdeeps.split(':')[1:4] for ssdeeps in list(rdb.smembers('info:sha256:{}'.format(searchquery)))][0])
-            cachename = gottacatchemall(rdb, 'sha256', searchquery_input, searchquery, sampled)
-        elif check_verify(rdb, searchquery) == 'context':
-            searchquery_input = searchquery
-            # contexts can contain (very) large sets of ssdeeps.
-            # To prevent "explosion", we set a limit on the (random) sample.
-            if rdb.scard('info:context:{}'.format(searchquery)) > CONTEXT_SET_LIMIT:
-                sampled = True
-            searchquery = [ssdeeps.split(':')[3:6] for ssdeeps in list(rdb.srandmember('info:context:{}'.format(searchquery), CONTEXT_SET_LIMIT))]
-            searchquery = [(':').join(splitted) for splitted in searchquery]
-            # searchquery is now a list of ssdeep(s)
-            cachename = gottacatchemall(rdb, 'context', searchquery_input, searchquery, sampled)
-        else:
-            # return empty values
-            cachename = None
-            return return_search_results(rdb, cachename, allssdeepnodes, allssdeeplinks, allssdeepcontexts, sampled)
+        # no search query given, terminate with empty results
+        return return_search_results(rdb, cachename, allssdeepnodes,
+                                     allssdeeplinks, allssdeepcontexts, sampled)
+    
+    
 
-        # first we create the cache
-        for ssdeep in rdb.zscan_iter(cachename):
-            # zrange_iter returns with a tuple (ssdeep,score)
-            ssdeep = ssdeep[0]
-            alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
-            logging.debug(f'ssdeep {ssdeep} alllinks {alllinks}')
-            for k in alllinks:
-                linkssdeep = k[0].split(',')[0]
-                # limit to prevent explosion
-                if get_sortedset_count(rdb, cachename) < (SORTED_SET_LIMIT):
-                    if rdb.zscore(cachename, linkssdeep) is not None:
-                        rdb.zadd(cachename, linkssdeep, get_sortedset_count(rdb, cachename))
-                # we have hit max, report the selection is a sample
-                else:
-                    sampled = True
+    # if cachename == None:
+    #     return return_search_results(rdb, cachename, allssdeepnodes, 
+    #                                  allssdeeplinks, allssdeepcontexts, sampled)
 
-        # then we add context and links
-        for ssdeep in rdb.zscan_iter(cachename):
-            # zrange_iter returns with a tuple (ssdeep,score)
-            ssdeep = ssdeep[0]
-            alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
-            allinfo = rdb.smembers('info:ssdeep:{}'.format(ssdeep))
-            # names:context is a list with a zscore based on the number of occurences of a certain context
-            # and a zrank function on an ordered set, so we can use it to get the index of a context as integer
-            # for our grouping
-            contexts = 'names:context'
-            contextlist = []
-            for infoline in allinfo:
-                    return_sha256 = infoline.split(':')[1]
-                    context = infoline.split(':')[3]
-                    logging.debug(f'context: {context}')
-                    # The first infoline will determine the "most significant" context of the ssdeep.
-                    contextlist.append(context)
-            context = unique_context_list(contextlist)
-            logging.debug(f'contextlist: {contextlist}')
+    # first we create a cache
+    cachename = build_cachename(rdb, searchquery)
+    create_cache(rdb, cachename)
 
-            fullcontextlist = ('|').join(context)
-            groupid = rdb.zrank(contexts, context[0])
-            newnode = {'id': rdb.zrank(cachename, ssdeep),
-                       'name': context,
-                       'sha256': return_sha256,
-                       'ssdeep': f'{ssdeep}',
-                       'main_context': context[0],
-                       'groupid': groupid,
-                       'color': aphash_color(groupid),
-                       'contexts': fullcontextlist}
+    if get_sortedset_count(rdb, cachename) >= (SORTED_SET_LIMIT):
+        sampled = True
 
-            logging.debug(rdb.zrank(contexts,
-                                    context[0]),
-                          contexts,
-                          contextlist,
-                          fullcontextlist,
-                          contexts,
-                          context)
+    # then we add context and links
+    for ssdeep in rdb.zscan_iter(cachename):
+        # zrange_iter returns with a tuple (ssdeep,score)
+        ssdeep = ssdeep[0]
+        alllinks = rdb.zrangebyscore('{}'.format(ssdeep), 0, 100, withscores=True)
+        allinfo = rdb.smembers('info:ssdeep:{}'.format(ssdeep))
+        # names:context is a list with a zscore based on the number of occurences of a certain context
+        # and a zrank function on an ordered set, so we can use it to get the index of a context as integer
+        # for our grouping
+        contexts = 'names:context'
+        contextlist = []
+        for infoline in allinfo:
+                return_sha256 = infoline.split(':')[1]
+                context = infoline.split(':')[3]
+                logging.debug(f'context: {context}')
+                # The first infoline will determine the "most significant" context of the ssdeep.
+                contextlist.append(context)
+        context = unique_context_list(contextlist)
+        logging.debug(f'contextlist: {contextlist}')
 
-            allssdeepnodes, allssdeepnodescount = cache_action(rdb,
-                                                               cachename,
-                                                               'nodes',
-                                                               newnode,
-                                                               'add')
+        fullcontextlist = ('|').join(context)
+        groupid = rdb.zrank(contexts, context[0])
+        newnode = {'id': rdb.zrank(cachename, ssdeep),
+                    'name': context,
+                    'sha256': return_sha256,
+                    'ssdeep': f'{ssdeep}',
+                    'main_context': context[0],
+                    'groupid': groupid,
+                    'color': aphash_color(groupid),
+                    'contexts': fullcontextlist}
 
-            allssdeepcontexts = context
-            allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
+        logging.debug(rdb.zrank(contexts,
+                                context[0]),
+                        contexts,
+                        contextlist,
+                        fullcontextlist,
+                        contexts,
+                        context)
+
+        allssdeepnodes, allssdeepnodescount = cache_action(rdb,
+                                                            cachename,
+                                                            'nodes',
+                                                            newnode,
+                                                            'add')
+
+        allssdeepcontexts = context
+        allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
+                                                                cachename,
+                                                                'contexts',
+                                                                newnode,
+                                                                'add')
+
+        for k in alllinks:
+            linkssdeep = k[0].split(',')[0]
+            # limit to prevent explosion
+            if rdb.zscore(cachename, linkssdeep):
+                source = rdb.zrank(cachename, ssdeep)
+                target = rdb.zrank(cachename, linkssdeep)
+                newlink = {'source': source,
+                            'target': target,
+                            'value': (k[1] / float(10)),
+                            'ssdeepcompare': k[1],
+                            'color': aphash_color(source),
+                            'id': f"{source}_{target}"}
+                # only uniques, so no need to verify existence
+                allssdeeplinks, allssdeeplinksscount = cache_action(rdb,
                                                                     cachename,
-                                                                    'contexts',
-                                                                    newnode,
+                                                                    'links',
+                                                                    newlink,
                                                                     'add')
 
-            for k in alllinks:
-                linkssdeep = k[0].split(',')[0]
-                # limit to prevent explosion
-                if rdb.zscore(cachename, linkssdeep):
-                    source = rdb.zrank(cachename, ssdeep)
-                    target = rdb.zrank(cachename, linkssdeep)
-                    newlink = {'source': source,
-                               'target': target,
-                               'value': (k[1] / float(10)),
-                               'ssdeepcompare': k[1],
-                               'color': aphash_color(source),
-                               'id': f"{source}_{target}"}
-                    # only uniques, so no need to verify existence
-                    allssdeeplinks, allssdeeplinksscount = cache_action(rdb,
-                                                                        cachename,
-                                                                        'links',
-                                                                        newlink,
-                                                                        'add')
+    allssdeepnodes = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepnodes))])
+    allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
+    allssdeepcontexts = contexts
 
-        allssdeepnodes = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepnodes))])
-        allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
-        allssdeepcontexts = contexts
-
-        return return_search_results(rdb, cachename, allssdeepnodes,
-                                     allssdeeplinks, allssdeepcontexts, sampled)
-
-    else:
-        # if searchquery is None, return empty json
-        cachename = None
-        return return_search_results(rdb, cachename, allssdeepnodes,
-                                     allssdeeplinks, allssdeepcontexts, sampled)
+    return return_search_results(rdb, cachename, allssdeepnodes,
+                                    allssdeeplinks, allssdeepcontexts, sampled)
 
 
 @route('/info', method='GET')

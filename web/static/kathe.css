@@ -3,6 +3,11 @@
   z-index: 1;
 }
 
+body {
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+
 td {
 vertical-align: top;
 text-align: left;

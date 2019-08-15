@@ -178,6 +178,7 @@ def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
         cachename = 'sample:{}:{}:{}'.format('cache', timestamp, searchquery_input)
     else:
         cachename = '{}:{}:{}'.format('cache', timestamp, searchquery_input)
+
     # check if cache does not already exist
     # if not, create a cache name and add it to the cachecontrol.
     # This prevents both creating the cache twice,
@@ -267,7 +268,7 @@ def return_search_results(rdb, cachename, allssdeepnodes,
     yield search_results
 
   
-def build_cachename(rdb, searchquery):
+def find_cachename(rdb, searchquery):
     """
     Check and find the cachename for a given search query
     """
@@ -329,6 +330,7 @@ def create_cache(rdb, cachename):
             # we have hit the max
             else:
                 return
+
 
 def build_graph(rdb, contexts, cachename):
     """
@@ -420,6 +422,12 @@ def get_cached_graph(rdb, cachename):
     """
     graph = {}
 
+    try:
+        pass
+
+    except Exception as cache_error:
+        pass
+
     return graph
 
     # reminder, cache function (accepts 'add' and 'delete'):
@@ -509,7 +517,7 @@ def contextinfo(rdb, querystring=None):
                                      allssdeeplinks, allssdeepcontexts, sampled)
     
     # first we create a cache
-    cachename = build_cachename(rdb, searchquery)
+    cachename = find_cachename(rdb, searchquery)
     create_cache(rdb, cachename)
 
     if get_sortedset_count(rdb, cachename) >= (SORTED_SET_LIMIT):

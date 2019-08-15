@@ -257,9 +257,9 @@ def return_search_results(rdb, cachename, allssdeepnodes,
                          "sample": '{}'.format(sampled).lower()}
 
         rv = {'info': selectioninfo,
-              'nodes': allssdeepnodes,
-              'links': allssdeeplinks,
-              'contexts': allssdeepcontexts
+              'nodes': list(allssdeepnodes),
+              'links': list(allssdeeplinks),
+              'contexts': list(allssdeepcontexts)
               }
 
         rdb.set(jsoncachename, json.dumps(rv, sort_keys=True))
@@ -280,6 +280,8 @@ def find_cachename(rdb, searchquery):
         return None
 
     searchquery_input = searchquery
+
+    cachename = None
 
     if check_verify(rdb, searchquery) == 'ssdeep':
         cachename = gottacatchemall(
@@ -304,8 +306,6 @@ def find_cachename(rdb, searchquery):
         # searchquery is now a list of ssdeep(s)
         cachename = gottacatchemall(
             rdb, 'context', searchquery_input, searchquery, sampled)
-    else:
-        cachename = None
 
     return cachename
 
@@ -336,6 +336,23 @@ def build_graph(rdb, contexts, cachename):
     """
     Build graph data
     """
+
+    cached_graph = get_cached_graph(rdb, cachename)
+
+    # use the cached results if possible
+    if cached_graph:
+        try:
+            allssdeepnodes = cached_graph[0]
+            allssdeeplinks = cached_graph[1]
+            allssdeepcontexts = cached_graph[2]
+            return allssdeepnodes, allssdeeplinks, allssdeepcontexts
+        except Exception as e:
+            # log, simply continue as if the cache doesn't exist
+            # TODO: maybe add some cache cleaning/purging here?
+            logging.info(f"Cache error! Rebuilding graph.. {e}")
+            pass
+
+    # otherwise build the graph
     allssdeepnodes = []
     allssdeeplinks = []
     allssdeepcontexts = []
@@ -355,11 +372,11 @@ def build_graph(rdb, contexts, cachename):
         for infoline in allinfo:
                 return_sha256 = infoline.split(':')[1]
                 context = infoline.split(':')[3]
-                logging.debug(f'context: {context}')
+                #logging.debug(f'context: {context}')
                 # The first infoline will determine the "most significant" context of the ssdeep.
                 contextlist.append(context)
         context = unique_context_list(contextlist)
-        logging.debug(f'contextlist: {contextlist}')
+        #logging.debug(f'contextlist: {contextlist}')
 
         fullcontextlist = ('|').join(context)
         groupid = rdb.zrank(contexts, context[0])
@@ -420,19 +437,29 @@ def get_cached_graph(rdb, cachename):
     """
     TODO: Retrieve cached graph data from redis
     """
-    graph = {}
+    graphdata = []
 
+    split_cachename = cachename.rsplit(':', 1)
+
+    # search for graph results in the cache
     try:
-        pass
+        allssdeepnodes = rdb.smembers(
+            f"{split_cachename[0]}:nodes:{split_cachename[1]}") #ew
+ 
+        allssdeeplinks = rdb.smembers(
+            f"{split_cachename[0]}:links:{split_cachename[1]}")
+
+        allssdeepcontexts = rdb.smembers(
+            f"{split_cachename[0]}:contexts:{split_cachename[1]}")
 
     except Exception as cache_error:
-        pass
+        logger.info(f"Graph cache error: {cache_error}")
+        return None
 
-    return graph
+    return allssdeepnodes, allssdeeplinks, allssdeepcontexts
 
     # reminder, cache function (accepts 'add' and 'delete'):
     # def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
-
 
 # web service routes begin here
 @route('/')
@@ -515,15 +542,19 @@ def contextinfo(rdb, querystring=None):
         # no search query given, terminate with empty results
         return return_search_results(rdb, cachename, allssdeepnodes,
                                      allssdeeplinks, allssdeepcontexts, sampled)
-    
-    # first we create a cache
+
     cachename = find_cachename(rdb, searchquery)
+    if cachename is None:
+        # no results found for query, terminate with empty results
+        return return_search_results(rdb, cachename, allssdeepnodes,
+                                     allssdeeplinks, allssdeepcontexts, sampled)
+
     create_cache(rdb, cachename)
 
     if get_sortedset_count(rdb, cachename) >= (SORTED_SET_LIMIT):
         sampled = True
 
-    # then we add context and links
+    # build graph data, checking for cached results along the way
     allthethings = build_graph(rdb, contexts, cachename)
 
     return return_search_results(rdb, cachename, allthethings[0],

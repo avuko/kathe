@@ -3,7 +3,8 @@
   z-index: 1;
 }
 
-body {
+html, body {
+  height: 100%;
   overflow-x: hidden;
   overflow-y: hidden;
 }
@@ -23,11 +24,7 @@ text-align: left;
 }
 
 #searchform {
-background: none transparent;
-position: fixed;
-top: 0;
-left:0;
-z-index: 1;
+height: 10vh;
 }
 
 input {
@@ -38,7 +35,7 @@ width: 50vw;
   z-index: 0;
   display: inline-block;
   width:  100vw;
-  height: 75vh;
+  height: 70vh;
   border: 0;
   margin: 0;
   top: 0;
@@ -51,6 +48,7 @@ width: 50vw;
   position: fixed;
   overflow-y: scroll;
   overflow-x: hidden;
+  height: 20vh;
 }
 
 #info1 {
@@ -59,4 +57,5 @@ width: 50vw;
   position: fixed;
   overflow-y: scroll;
   overflow-x: hidden;
+  height: 20vh;
 } 

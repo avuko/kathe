@@ -340,7 +340,7 @@ def build_graph(rdb, contexts, cachename):
     cached_graph = get_cached_graph(rdb, cachename)
 
     # use the cached results if possible
-    if cached_graph:
+    if cached_graph and all(d for d in cached_graph):
         try:
             allssdeepnodes = cached_graph[0]
             allssdeeplinks = cached_graph[1]
@@ -544,6 +544,7 @@ def contextinfo(rdb, querystring=None):
                                      allssdeeplinks, allssdeepcontexts, sampled)
 
     cachename = find_cachename(rdb, searchquery)
+    
     if cachename is None:
         # no results found for query, terminate with empty results
         return return_search_results(rdb, cachename, allssdeepnodes,

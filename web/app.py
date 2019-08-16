@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # from bottle import Bottle
-import os
 import ast
 import json
 import logging
+import os
 import sys
 import urllib.parse
 from itertools import cycle, islice
 
 import bottle_redis as redis
-from bottle import (HTTPResponse, default_app, install, request, response,
-                    route, run, static_file, template, TEMPLATE_PATH)
+from bottle import (TEMPLATE_PATH, HTTPResponse, default_app, install, request,
+                    response, route, run, static_file, template)
 
 import defaults
 import kathe
@@ -27,12 +27,14 @@ try:
 except IndexError:
     REDIS_DB = defaults.REDIS_DB
 
-logging.info('using database #{}'.format(REDIS_DB))
+logging.info('Kathe frontend started using database #{}'.format(REDIS_DB))
 
 plugin = redis.RedisPlugin(host=REDIS_HOST, db=REDIS_DB, decode_responses=True)
 install(plugin)
 
 base_path = os.path.abspath(os.path.dirname(__file__))
+
+# ensure that bottle can use templates from the 'templates' folder
 template_path = os.path.join(base_path, 'templates')
 TEMPLATE_PATH.insert(0, template_path)
 
@@ -170,6 +172,7 @@ def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
     This is where the core of the work is done, linking all ssdeeps together,
     with the ssdeep_compare as a score.
     """
+
     # get timestamp from latest update
     timestamp = str(rdb.get('timestamp'))
     logging.debug('timestamp: {}'.format(timestamp))
@@ -332,31 +335,45 @@ def create_cache(rdb, cachename):
                 return
 
 
-def build_graph(rdb, contexts, cachename):
+def get_graph(rdb, contexts, cachename):
     """
-    Build graph data
+    Returns JSON graph data. Checks for cached graph results, builds them otherwise.
     """
 
-    cached_graph = get_cached_graph(rdb, cachename)
+    graph = get_cached_graph(rdb, cachename)
 
-    # use the cached results if possible
-    if cached_graph and all(d for d in cached_graph):
-        try:
-            allssdeepnodes = cached_graph[0]
-            allssdeeplinks = cached_graph[1]
-            allssdeepcontexts = cached_graph[2]
-            return allssdeepnodes, allssdeeplinks, allssdeepcontexts
-        except Exception as e:
-            # log, simply continue as if the cache doesn't exist
-            # TODO: maybe add some cache cleaning/purging here?
-            logging.info(f"Cache error! Rebuilding graph.. {e}")
-            pass
-
-    # otherwise build the graph
     allssdeepnodes = []
     allssdeeplinks = []
     allssdeepcontexts = []
 
+    # use the cached results if possible
+    if graph and all(d for d in graph):
+        try:
+            allssdeepnodes = graph[0]
+            allssdeeplinks = graph[1]
+            allssdeepcontexts = graph[2]
+            return allssdeepnodes, allssdeeplinks, allssdeepcontexts
+        except Exception as e:
+            # cache error, simply continue as if the result cache doesn't exist
+            # TODO: maybe add some cache cleaning/purging here?
+            logging.info(f"Result cache error! Rebuilding graph.. {e}")
+            pass
+    
+    graph = build_graph(rdb, contexts, cachename)
+
+    return graph[0], graph[1], graph[2]
+    
+
+def build_graph(rdb, contexts, cachename):
+    """
+    Builds a JSON graph.
+    """
+
+    allssdeepnodes = []
+    allssdeeplinks = []
+    allssdeepcontexts = []
+
+    # otherwise build the graph
     for ssdeep in rdb.zscan_iter(cachename):
         # zrange_iter returns with a tuple (ssdeep,score)
         ssdeep = ssdeep[0]
@@ -550,16 +567,17 @@ def contextinfo(rdb, querystring=None):
         return return_search_results(rdb, cachename, allssdeepnodes,
                                      allssdeeplinks, allssdeepcontexts, sampled)
 
+    # only create a cache if we have a valid cache name
     create_cache(rdb, cachename)
 
     if get_sortedset_count(rdb, cachename) >= (SORTED_SET_LIMIT):
         sampled = True
 
-    # build graph data, checking for cached results along the way
-    allthethings = build_graph(rdb, contexts, cachename)
+    # get graph data
+    graph = get_graph(rdb, contexts, cachename)
 
-    return return_search_results(rdb, cachename, allthethings[0],
-                                 allthethings[1], allthethings[2], sampled)
+    return return_search_results(rdb, cachename, graph[0],
+                                 graph[1], graph[2], sampled)
 
 
 @route('/info', method='GET')
@@ -567,6 +585,7 @@ def contextinfo(rdb, querystring=None):
 def ssdeepinfo(rdb):
     queryhash = request.query.ssdeephash
     response.content_type = 'application/json'
+
     if rdb.sismember('hashes:ssdeep', queryhash):
         infolist = {'ssdeep': queryhash}
         allinfo = rdb.smembers('info:ssdeep:{}'.format(queryhash))
@@ -576,8 +595,6 @@ def ssdeepinfo(rdb):
         for infoline in allinfo:
             # create an attribute to link sha256 hashes to online data sources
 
-            # I think this causes some strange behaviour in the info0 and info1 boxes.
-            # it might be necessary to remove the non-link sha256 from whatever is being used for these -L
             for data_source in DATA_SOURCES:
                 if data_source in infoline.split(':')[3]:
                     sha256list.append('{}{}'.format(DATA_SOURCES[data_source],
@@ -587,13 +604,12 @@ def ssdeepinfo(rdb):
             namelist.append(infoline.split(':')[5])
             contextlist.append(infoline.split(':')[3])
 
-        # I made a second unique_list function to create an ordered list of unique context terms
         infolist['context'] = ('|').join(unique_context_list(contextlist))
-
         infolist['name'] = ('|').join(sorted(unique_list(namelist)))
         infolist['sha256'] = ('|').join(sorted(unique_list(sha256list)))
         rv = [infolist]
         return json.dumps(rv, sort_keys=True)
+
     else:
         return HTTPResponse(status=404, body=f'ssdeep hash {queryhash} not found')
 

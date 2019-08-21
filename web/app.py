@@ -1,36 +1,40 @@
 #!/usr/bin/env python3
 # from bottle import Bottle
-from bottle import HTTPResponse, response, request, \
-    install, run, route, static_file, default_app
-from itertools import cycle, islice
+import os
 import ast
-import bottle_redis as redis
-import defaults
 import json
-import kathe
 import logging
 import sys
 import urllib.parse
+from itertools import cycle, islice
 
+import bottle_redis as redis
+from bottle import (HTTPResponse, default_app, install, request, response,
+                    route, run, static_file, template, TEMPLATE_PATH)
+
+import defaults
+import kathe
+
+CONTEXT_SET_LIMIT = defaults.CONTEXT_SET_LIMIT
+DATA_SOURCES = defaults.DATA_SOURCES
 KATHE_HOST = defaults.KATHE_HOST
+KATHE_PORT = defaults.KATHE_PORT
+REDIS_HOST = defaults.REDIS_HOST
+SORTED_SET_LIMIT = defaults.SORTED_SET_LIMIT
 
 try:
     REDIS_DB = sys.argv[1]
 except IndexError:
     REDIS_DB = defaults.REDIS_DB
 
-
-SORTED_SET_LIMIT = defaults.SORTED_SET_LIMIT
-CONTEXT_SET_LIMIT = defaults.CONTEXT_SET_LIMIT
-DATA_SOURCES = defaults.DATA_SOURCES
-REDIS_HOST = defaults.REDIS_HOST
-KATHE_PORT = defaults.KATHE_PORT
-
 logging.info('using database #{}'.format(REDIS_DB))
 
 plugin = redis.RedisPlugin(host=REDIS_HOST, db=REDIS_DB, decode_responses=True)
 install(plugin)
 
+base_path = os.path.abspath(os.path.dirname(__file__))
+template_path = os.path.join(base_path, 'templates')
+TEMPLATE_PATH.insert(0, template_path)
 
 def aphash_color(gid):
     # AP hash function by Arash Partow
@@ -61,9 +65,9 @@ def roundrobin(*iterables):
 
 def unique_list(seq):
     """
+    Returns unique values from a sequence. Modified to remove empty context entries
     https://www.peterbe.com/plog/fastest-way-to-uniquify-a-list-in-python-3.6
     """
-    # modified to remove empty context entries
     return list(dict.fromkeys(s for s in seq if s))
 
 
@@ -134,7 +138,8 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
 
 
 def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
-    """ I needed a way to manage the caches.
+    """ 
+    I needed a way to manage the caches.
     See flushcache.py
     """
     # insert type of cache into cachename
@@ -157,7 +162,8 @@ def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
 
 
 def gottacatchemall(rdb, searchquery_type, searchquery_input, ssdeep, sampled):
-    """exhaustive function to get all related ssdeep hashes.
+    """
+    Exhaustive function to get all related ssdeep hashes.
     This is where the core of the work is done, linking all ssdeeps together,
     with the ssdeep_compare as a score.
     """
@@ -261,28 +267,8 @@ def return_search_results(rdb, cachename, allssdeepnodes,
 
 @route('/')
 def hello():
-    """ redirect to kathe """
-    return """<html>
-<head>
-<meta http-equiv="refresh" content="0;URL=kathe/" />
-<style>
-object {display: block; width: 60%; height: 50vh; border: 0; overflow: hidden; margin: auto; margin-top: 10vh;}
-</style>
-<link rel="stylesheet" href="/static/fira.css">
-<link rel="stylesheet" href="/static/kathe.css">
-</head>
-<body>
-<!--[if IE]>
-<object classid="clsid:25336920-03F9-11CF-8FD0-00AA00686F13" data="static/katherine.html">
-</object>
-<![endif]-->
-
-<!--[if !IE]> <-->
-<object type="text/html" data="static/katherine.html">
-</object>
-<!--> <![endif]-->
-</body>
-</html>"""
+    """ Welcome message, redirects to the main gui """
+    return template('./index.html')
 
 
 @route('/add', method='POST')
@@ -326,177 +312,15 @@ def upload_handler():
 @route('/kathe', method='GET')
 @route('/kathe/', method='GET')
 def build_context(querystring=None):
-    """ This route provides the main GUI.
-It consists of glued together CSS, JavaScript and python.
-I use Redis for the backend and force-graph.js for the frontend.
+    """ 
+    This route provides the main GUI.
     """
     querystring = request.query.search
-    response = """
-<!DOCTYPE html>
-<head>
-<meta charset="utf-8">
-<link rel="stylesheet" href="/static/fira.css">
-<link rel="stylesheet" href="/static/kathe.css">
-</head>
-<body>
- <script>
- var urlParams = new URLSearchParams(window.location.search);
- var searchparam = urlParams.get('search');
- </script>
- <div id="searchform">
-  <form action="/kathe/" method="get">
-   <fieldset>
-     <legend>ssdeep | sha256 | context | status: <span id="httpcode"></span></legend><p>
-     <input type="text" name="search" id="search" value="{}" onBlur="this.value=searchparam"/></p>
-   </fieldset>
-  </form>
-  </div>
-  <div id="setinfo"></div>
-  <div id="graph"></div>
-<div id="info0">info0</div><div id="info1">info1</div>
- <script>
-  var searchvalue = decodeURIComponent("{}");
-  var unescaped_searchvalue = "{}";
-
- // function to show fetch status
- function handleStatus(res_status) {{
-        document.getElementById('httpcode').innerHTML = res_status;
- }}
-
-
- // function to turn 'http://<something>' strings into hrefs
- function string_to_href(inputstring) {{
- var splitstring = inputstring.split('|');
- var returnstring = '';
- for (i = 0; i < splitstring.length; i++) {{
-    var splstr = splitstring[i];
-    if (splstr.startsWith('http')) {{
-    returnstring += ('<a href=\"' + splstr + '\" target=\"_blank\">' + splstr.split('/').pop() + '</a><br />')
-    }}
-    else {{
-    returnstring += (splstr + '<br />')
-    }}
-    }}
- return returnstring;
- }}
- </script>
- <script src="/static/2d/force-graph.js"></script>
- <script>
-// fetch ssdeephash info
-function ssdeepinfo(ssdeep) {{
- return fetch("/info/?ssdeephash=" + encodeURIComponent(ssdeep), {{cache: "no-store"}})
-    // .then(handleErrors)
-    .then(response => {{
-    if(response.ok) {{
-    handleStatus(response.status);
-    return response.json();
-    }} else {{
-    handleStatus(response.status);
-    }}
-    }})
-    .then(jsonresponse => json2table(jsonresponse));
-}}
-
-
-// table from json script
-function json2table(json, classes) {{
-  var cols = Object.keys(json[0]);
-  var headerRow = '';
-  var bodyRows = '';
-  classes = classes || '';
-
-  json.map(function(row) {{
-  cols.map(function(colName) {{
-    bodyRows += '<tr><td><b>'+ colName + '</b></td><td>' + string_to_href(row[colName]) + '</td></tr>'
-  }})
-  }});
-
-  return '<table class="' +
-         classes +
-         '"><thead><tr>' +
-         headerRow +
-         '</tr></thead><tbody>' +
-         bodyRows +
-         '</tbody></table>';
-}};
-
-// infoblocks scripts
-// info0
- function katheclickleft(ssdeep){{
- ssdeepinfo(ssdeep).then(function(info0){{document.getElementById('info0').innerHTML = info0}})
-              .catch(error => console.error(error));
-
- }};
-// info1
- function katheclickright(ssdeep){{
- ssdeepinfo(ssdeep).then(function(info1){{document.getElementById('info1').innerHTML = info1}})
-              .catch(error => console.error(error));
- }};
-
-function getsetinfo(setinfodata){{
-    document.getElementById('setinfo').innerHTML =
-    'dbsize: ' + setinfodata.dbsize
-    + '<br />edges : ' + setinfodata.linkcount
-    + '<br />nodes : ' + setinfodata.nodecount
-    + '<br />sample: ' + setinfodata.sample
-    ;
-
-}};
- </script>
- <script>
-    var graphDiv = document.getElementById("graph");
-    // we need to grab these to set them later
-    var graphwidth =  '98px';
-    var graphheight = '98px';
-    fetch("/search/?search=" + unescaped_searchvalue, {{cache: "no-store"}})
-    .then(response => {{
-    if(response.ok) {{
-    handleStatus(response.status);
-    return response.json();
-    }} else {{
-    handleStatus(response.status);
-    }}
-    }})
-    .then((out) => {{
-    var myData = out;
-    var setinfo = JSON.parse(JSON.stringify(myData.info));
-    getsetinfo(setinfo);
-    const elem = document.getElementById('graph');
-    const Graph = ForceGraph( {{ alpha: true }} )
-        (elem)
-        .backgroundColor('#fdfdfc')
-        .nodeColor(d => d.color)
-        .nodeLabel(d => d.name)
-        .linkLabel(d => d.ssdeepcompare)
-
-        .linkHoverPrecision('1')
-        .linkWidth('value')
-        .graphData(myData)
-        .onNodeClick(node => {{
-          if (node !== null ) {{
-          katheclickleft(node.ssdeep);
-          Graph.centerAt(node.x, node.y, 1000);
-          Graph.zoom(8, 2000);
-
-          }}
-
-        }})
-        .onNodeRightClick(node => {{
-          if (node !== null ) {{
-          katheclickright(node.ssdeep);
-          Graph.centerAt(node.x, node.y, 1000);
-          Graph.zoom(8, 2000);
-          }}
-        }})
-
-    }}).catch(err => console.log(err));
- </script>
-</body>
-</html>
-""".format(urllib.parse.quote_plus(querystring),
-           urllib.parse.quote_plus(querystring).replace('+', '%2B'),
-           urllib.parse.quote_plus(querystring).replace('+', '%2B'))
-    return response
+    
+    return template('./kathe.html', 
+                    querystring=urllib.parse.quote_plus(querystring), 
+                    querystring2=urllib.parse.quote_plus(querystring).replace('+', '%2B')
+                    )
 
 
 @route('/search', method='GET')
@@ -683,7 +507,7 @@ def ssdeepinfo(rdb):
 
 @route('/static/<filepath:path>')
 def server_static(filepath):
-    return static_file(filepath, root='./static')
+    return static_file(filepath, root=os.path.join(base_path, 'static'))
 
 
 if __name__ == '__main__':

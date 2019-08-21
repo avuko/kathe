@@ -16,8 +16,10 @@ ENTRYPOINT ["pipenv"]
 ADD kathe.py /
 ADD ./web/app.py /web/
 ADD ./web/kathe.py /web/
+ADD ./web/defaults.py /web/
 ADD ./web/flushcache.py /
 ADD ./web/static /web/static
+ADD ./web/templates /web/templates
 ADD Pipfile /
 ADD Pipfile.lock /
 

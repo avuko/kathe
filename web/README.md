@@ -1,13 +1,23 @@
 # Installation
 
-kathe is build around two*) components:
+Kathe is built around two*) components:
 
 - `kathe.py` a script to create datasets
 - `app.py` a GUI to analyse the dataset based via a webgui/API
 
 *) This setup, or at least the regular workflow, will change when we add storing of info to the API.
 
-## GUI
+## Install using docker
+
+Currently, Kathe can be quickly deployed using Docker and Docker-compose. To do use, make sure your system is running Docker and has an internet connection for pulling images. You can then build the Kathe image as follows:
+
+``` cd [this repo] && docker build . -t kathe:latest ```
+
+Verify your freshly built image exists using ```docker image ls``` and start the application using ```docker-compose up -d ```
+
+Navigate to https://[your-docker-host-ip]:8000 
+
+## Manual install (deprecated) 
 
 The GUI is installed as follows:
 

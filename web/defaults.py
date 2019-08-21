@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 KATHE_HOST = '0.0.0.0'
-KATHE_PORT = 80
+KATHE_PORT = 8000
 REDIS_DB = 13
 REDIS_HOST = 'localhost'
 

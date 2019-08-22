@@ -19,15 +19,14 @@
                 <div class="form-group">
                     <form action="/kathe/" method="get">
                         <fieldset>
-                            <label>ssdeep | sha256 | context | status: 
-                                <span id="httpcode"></span>
-                            </label>
+                            <label>| ssdeep | sha256 | context |</label>
                             <input type="text" class="form-control" name="search" id="search" value="{{querystring}}" onBlur="this.value=searchparam" />
                             <small class="form-text text-muted">Please enter a search value</small>
                         </fieldset>
                     </form>
                 </div>
-                <div class="align-items-center" id="setinfo"></div>
+                <span class="align-items-center" id="setinfo"></span>| status: <span id="httpcode"></span>
+
             </div>
         </div>
 

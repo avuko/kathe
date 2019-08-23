@@ -3,9 +3,15 @@
 ## Building kathe
 
  - Get `docker` and `docker-compose`
+
+From this git directory:
+
  - `docker build . -t kathe:latest`
+
  - `docker save -o kathe.img kathe`
+
  - `docker image load -i kathe.img`
+
  - `docker-compose up -d`
 
 Bring it back down with:

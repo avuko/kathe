@@ -3,48 +3,52 @@
   z-index: 1; */
 }
 
-body {
-  overflow-x: hidden;
-  overflow-y: hidden;
+.fill {
+height: 100%;
+min-height: 100%;
+display: block;
 }
 
 td {
+  /*
 vertical-align: top;
 text-align: left;
+*/
 }
 
 #chart {
-        display: block;
+/*        display: block;
         position: relative;
         left: 0px;
         right: 0px;
         top: 0px;
-        bottom: 0px;
+        bottom: 0px; */
 }
 
 #searchform {
-background: none transparent;
+/* background: none transparent;
 position: fixed;
 top: 0;
 left:0;
-z-index: 1;
+z-index: 1; */
 }
 
 input {
-width: 50vw;
+/* width: 50vw; */
 }
 
 #graph {
-  z-index: 0;
+/*  z-index: 0;
   display: inline-block;
   width:  100vw;
   height: 70vh;
   border: 0;
   margin: 0;
   top: 0;
-  background: none transparent;
+  background: none transparent; */
 }
 
+/*
 #info0 {
   z-index: 1;
   font-size: smaller;
@@ -59,4 +63,5 @@ width: 50vw;
   position: fixed;
   overflow-y: scroll;
   overflow-x: hidden;
-} 
+}
+*/

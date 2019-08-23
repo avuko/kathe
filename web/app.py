@@ -36,6 +36,7 @@ base_path = os.path.abspath(os.path.dirname(__file__))
 template_path = os.path.join(base_path, 'templates')
 TEMPLATE_PATH.insert(0, template_path)
 
+
 def aphash_color(gid):
     # AP hash function by Arash Partow
     s = str(gid)
@@ -138,7 +139,7 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
 
 
 def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
-    """ 
+    """
     I needed a way to manage the caches.
     See flushcache.py
     """
@@ -280,6 +281,7 @@ def upload_handler():
         try:
             data = request.json
         except ValueError:
+            # 400 Bad Request response status
             response.status = 400
             return
 
@@ -312,13 +314,13 @@ def upload_handler():
 @route('/kathe', method='GET')
 @route('/kathe/', method='GET')
 def build_context(querystring=None):
-    """ 
+    """
     This route provides the main GUI.
     """
     querystring = request.query.search
-    
-    return template('./kathe.html', 
-                    querystring=urllib.parse.quote_plus(querystring), 
+
+    return template('./kathe.html',
+                    querystring=urllib.parse.quote_plus(querystring),
                     querystring2=urllib.parse.quote_plus(querystring).replace('+', '%2B')
                     )
 

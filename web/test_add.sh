@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+target='http://127.0.0.1:8000/add'
+
 data1='
 {
     "info": [
@@ -101,28 +103,44 @@ data6='
     ]
 }
 '
+data7='
+{
+    "info": [
+        {
+            "contexts": [],
+            "inputname": "94345f337bd59d61678a6d0140603334eba7550e2ca1b9843cbc09b9c9872a00",
+            "sha256": "94345f337bd59d61678a6d0140603334eba7550e2ca1b9843cbc09b9c9872a00",
+            "ssdeep": "768:yU8Uk/935h7OAL/mZbH7i-jHF8cE3V3hJ/0rm6kpFV8ezy6jNfuP+xhtrfZU9qZU9r:SUkUM/aPHFnW3X+kxBjNSmtrfp0"
+        }
+    ]
+}
+'
 
 
 echo "data1: bad chars in context, should PASS"
-curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data1}"
+curl -w " %{http_code}" "${target}" -H 'Content-Type: application/json' -d "${data1}"
 echo ""
 
 echo "data2: correct format, should PASS"
-curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data2}"
+curl -w " %{http_code}" "${target}" -H 'Content-Type: application/json' -d "${data2}"
 echo ""
 
 echo "data3: bad chars in ssdeep, should FAIL"
-curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data3}"
+curl -w " %{http_code}" "${target}" -H 'Content-Type: application/json' -d "${data3}"
 echo ""
 
 echo "data4: bad chars in sha256, should FAIL"
-curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data4}"
+curl -w " %{http_code}" "${target}" -H 'Content-Type: application/json' -d "${data4}"
 echo ""
 
 echo "data5: incorrect json, should FAIL"
-curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data5}"
+curl -w " %{http_code}" "${target}" -H 'Content-Type: application/json' -d "${data5}"
 echo ""
 
 echo "data6: incorrect format ssdeep, should FAIL"
-curl -w " %{http_code}" http://127.0.0.1/add -H 'Content-Type: application/json' -d "${data6}"
+curl -w " %{http_code}" "${target}" -H 'Content-Type: application/json' -d "${data6}"
+echo ""
+
+echo "data7: empty context, should FAIL"
+curl -w " %{http_code}" "${target}" -H 'Content-Type: application/json' -d "${data7}"
 echo ""

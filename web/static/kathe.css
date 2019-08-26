@@ -3,10 +3,9 @@
   z-index: 1; */
 }
 
-.fill {
+html,body {
 height: 100%;
 min-height: 100%;
-display: block;
 }
 
 td {

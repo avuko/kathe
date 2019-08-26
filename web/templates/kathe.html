@@ -1,20 +1,29 @@
 <!DOCTYPE html>
+<html>
 <head>
   <meta charset="utf-8">
   <link rel="stylesheet" href="/static/fira.css">
-  <link rel="stylesheet" href="/static/kathe.css">
+  <!-- <link rel="stylesheet" href="/static/kathe.css"> -->
   <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+ <style>
+html,body {
+  height: 100%;
+    overflow-hidden;
+}
+  </style>
 </head>
 
-<body style="display:bock; height: 100vh;">
-  <script>
-    var urlParams = new URLSearchParams(window.location.search);
-var searchparam = urlParams.get('search');
-  </script>
-  <div class="container-fluid h-100 d-flex flex-column fill">
-
-    <div class="row bg-light">
+<body>
+  <!-- container -->
+  <div class="container-fluid h-100">
+    <!-- row search form and info -->
+    <div class="row bg-light h-25">
+      <!-- col search form and info -->
       <div class="col">
+        <!-- row search form -->
+        <div class="row">
+        <!-- col search form -->
+        <div class="col">
         <div class="form-group">
           <form action="/kathe/" method="get">
             <fieldset>
@@ -25,32 +34,39 @@ var searchparam = urlParams.get('search');
           </form>
         </div>
         <span class="align-items-center" id="setinfo"></span><span> | status: </span><span id="httpcode"></span>
-
+        <!-- end col search form -->
       </div>
-    </div>
+        <!-- end row search form -->
+      </div>
 
-    <div class="col w-100 p-0">
-        <div class="card h-100 p-0">
-          <div class="card-body fill">
-            <div id="graph">
-            </div>
-          </div>
+        <!-- row info cards -->
+      <div class="row">
+      <div class="col">
+        <div class="card card-body overflow-auto p-0 m-0" id="info0">info0</div>
+      </div>
+      <div class="col">
+        <div class="card card-body overflow-auto p-0 m-0" id="info1">info1</div>
+      </div>
+        <!-- end row info cards -->
+    </div>
+      <!-- end col search form and info -->
+      </div>
+      <!-- end row search form and info -->
+      </div>
+
+
+    <div class="row h-75" id="graphrow">
+      <div class="col">
+        <div id="graph">
         </div>
-    </div>
-
-    <div class="row p-3" style="height: 20vh;">
-      <div class="col p-0">
-        <!-- <div class="card card-body h-100 w-50" id="info0">info0</div> -->
-        <div class="card card-body overflow-auto fill" id="info0">info0</div>
-      </div>
-      <div class="col p-0">
-        <!-- <div class="card card-body h-100 w-50" id="info1">info1</div> -->
-        <div class="card card-body overflow-auto fill" id="info1">info1</div>
       </div>
     </div>
-
+  <!-- end container -->
   </div>
-
+  <script>
+    var urlParams = new URLSearchParams(window.location.search);
+var searchparam = urlParams.get('search');
+  </script>
   <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script>
     var searchvalue = decodeURIComponent("{{querystring2}}");
@@ -172,9 +188,11 @@ function getsetinfo(setinfodata) {
   </script>
   <script>
     var graphDiv = document.getElementById("graph");
-// we need to grab these to set them later
-var graphwidth = '98px';
-var graphheight = '98px';
+// we need to grab these to set them hard, otherwise the graph is window.height
+// var graphwidth = window.innerWidth;
+var divheight = document.getElementById("graphrow");
+graphheight = (divheight.clientHeight - 20);
+console.log(divheight);
 fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
   .then(response => {
     {
@@ -198,6 +216,7 @@ fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
       const elem = document.getElementById('graph');
       const Graph = ForceGraph({ alpha: true } )
       (elem)
+        .height(graphheight)
         .backgroundColor('#fdfdfc')
         .nodeColor(d => d.color)
         .nodeLabel(d => d.name)
@@ -234,4 +253,4 @@ fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
     }}).catch (err => console.log(err));
   </script>
 </body>
-
+</html>

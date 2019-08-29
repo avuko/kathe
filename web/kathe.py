@@ -296,10 +296,11 @@ def add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext):
 def rest_add(info_object):
     """This function should receive a list of dictionaries.
     Each dictionary must consist of:
-    {"inputname": <>, "sha256": <>, "ssdeep": <>, "contexts": [<>, "<>, "<>"]}
+    {"inputname": <>, "sha256": <>, "ssdeep": <>, "contexts": ["<>", "<>", "<>"]}
     The most important context must be the first in the list."""
     logger.debug(f"=== DEBUG === : ingesting info_object: {info_object}")
 
+    # sanity check
     for rest_info in info_object:
         inputname = clean_name(rest_info['inputname'])
         if check_sha256(rest_info['sha256']):
@@ -309,6 +310,8 @@ def rest_add(info_object):
         if check_ssdeep(rest_info['ssdeep']):
             input_ssdeep = rest_info['ssdeep']
         else:
+            return False
+        if len(rest_info['contexts']) == 0:
             return False
 
         contexts = list(map(lambda x: clean_context(x), rest_info['contexts']))

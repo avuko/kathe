@@ -1,233 +1,244 @@
 <!DOCTYPE html>
-
-<head>
+<html>
+  <head>
     <meta charset="utf-8">
     <link rel="stylesheet" href="/static/fira.css">
-    <link rel="stylesheet" href="/static/kathe.css">
+    <!-- <link rel="stylesheet" href="/static/kathe.css"> -->
     <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
-</head>
+    <style>
+/* #graph {
+padding: 0;
+margin: 0;
+} */
+html, body
+{
+  height: 100%;
+    overflow-x: hidden;
+      overflow-y: hidden;
+}
+* {
+/*  border: 1px solid #f00 !important; */
+}
+  .info-overflow {
+    overflow: auto;
+      width: 100%;
+        height: 100%;
+  }
+    </style>
+  </head>
 
-<body>
-    <script>
-        var urlParams = new URLSearchParams(window.location.search);
-        var searchparam = urlParams.get('search');
-    </script>
-    <div class="container-fluid">
-
-        <div class="row bg-light">
-            <div class="col">
-                <div class="form-group" id="searchform">
-                    <form action="/kathe/" method="get">
-                        <fieldset>
-                            <label>ssdeep | sha256 | context | status: 
-                                <span id="httpcode"></span>
-                            </label>
-                            <input type="text" class="form-control" name="search" id="search" value="{{querystring}}" onBlur="this.value=searchparam" />
-                            <small class="form-text text-muted">Please enter a search value</small>
-                        </fieldset>
-                    </form>
-                </div>
-                <div class="align-items-center" id="setinfo"></div>
+  <body>
+    <!-- container -->
+    <div class="container-fluid h-100">
+      <!-- row search form and info -->
+      <div class="row bg-light h-25 row-eq-height">
+        <!-- col search form and info -->
+        <div class="col d-flex">
+              <div class="form-group">
+                <form action="/kathe/" method="get">
+                  <fieldset>
+                    <label><span style="float: left;">| ssdeep | sha256 | context |</span><span style="float: right;"><span id="setinfo"></span><span> | status: </span> <span id="httpcode"></span></span></label>
+                    <input type="text" class="form-control" name="search" id="search" value="{{querystring}}" onBlur="this.value=searchparam" />
+                    <small class="form-text text-muted">Please enter a search value</small>
+                  </fieldset>
+                </form>
+              </div>
+              <!-- end card search form -->
             </div>
-        </div>
 
-        <div class="row">
-            <div id="graph"></div>
-        </div>
 
-        <div class="row">
-            <div class="col p-0">
-                <div class="card card-body w-50" id="info0">info0</div>
-            </div>
-            <div class="col p-0">
-                <div class="card card-body w-50" id="info1">info1</div>
-            </div>      
-        </div>
+              <div class="col d-flex">
+                <div class="info-overflow" id="info0">info0</div>
+              </div>
+              <div class="col d-flex">
+                <div class="info-overflow" id="info1">info1</div>
+              </div>
+        <!-- end row search form and info -->
+      </div>
 
+      <div class="row h-75" >
+        <div class="col d-flex" id="graphrow">
+          <div id="graph">
+          </div>
+        </div>
+      </div>
+      <!-- end container -->
     </div>
-
+    <script>
+      var urlParams = new URLSearchParams(window.location.search);
+var searchparam = urlParams.get('search');
+    </script>
     <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script>
-        var searchvalue = decodeURIComponent("{{querystring2}}");
-        var unescaped_searchvalue = "{{querystring2}}";
-
-        // function to show fetch status
-        function handleStatus(res_status) {
-            {
-                document.getElementById('httpcode').innerHTML = res_status;
-            }
+      var searchvalue = decodeURIComponent("{{querystring2}}");
+var unescaped_searchvalue = "{{querystring2}}";
+// function to show fetch status
+function handleStatus(res_status) {
+  {
+    document.getElementById('httpcode').innerHTML = res_status;
+  }
+}
+// function to turn 'http://<something>' strings into hrefs
+function string_to_href(inputstring) {
+  {
+    var splitstring = inputstring.split('|');
+    var returnstring = '';
+    for (i = 0; i < splitstring.length; i++) {
+      {
+        var splstr = splitstring[i];
+        if (splstr.startsWith('http')) {
+          {
+            returnstring += ('<a href=\"' + splstr + '\" target=\"_blank\">' + splstr.split('/').pop() + '</a><br />')
+          }
         }
-
-
-        // function to turn 'http://<something>' strings into hrefs
-        function string_to_href(inputstring) {
-            {
-                var splitstring = inputstring.split('|');
-                var returnstring = '';
-                for (i = 0; i < splitstring.length; i++) {
-                    {
-                        var splstr = splitstring[i];
-                        if (splstr.startsWith('http')) {
-                            {
-                                returnstring += ('<a href=\"' + splstr + '\" target=\"_blank\">' + splstr.split('/').pop() + '</a><br />')
-                            }
-                        }
-                        else {
-                            {
-                                returnstring += (splstr + '<br />')
-                            }
-                        }
-                    }
-                }
-                return returnstring;
-            }
+        else {
+          {
+            returnstring += (splstr + '<br />')
+          }
         }
+      }
+    }
+    return returnstring;
+  }
+}
     </script>
     <script src="/static/2d/force-graph.js"></script>
     <script>
-        // fetch ssdeephash info
-        function ssdeepinfo(ssdeep) {
-            {
-                return fetch("/info/?ssdeephash=" + encodeURIComponent(ssdeep), { cache: "no-store" })
-    // .then(handleErrors)
-    .then(response => {
-                    {
-                        if (response.ok) {
-                            {
-                                handleStatus(response.status);
-                                return response.json();
-                            }
-                        } else {
-                            {
-                                handleStatus(response.status);
-                            }
-                        }
-                    }
-                })
-                .then(jsonresponse => json2table(jsonresponse));
+      // fetch ssdeephash info
+      function ssdeepinfo(ssdeep) {
+        {
+          return fetch("/info/?ssdeephash=" + encodeURIComponent(ssdeep), { cache: "no-store" })
+          // .then(handleErrors)
+            .then(response => {
+              {
+                if (response.ok) {
+                  {
+                    handleStatus(response.status);
+                    return response.json();
+                  }
+                } else {
+                  {
+                    handleStatus(response.status);
+                  }
+                }
+              }
+            })
+            .then(jsonresponse => json2table(jsonresponse));
         }}
-
-
-        // table from json script
-        function json2table(json, classes) {
-            {
-                var cols = Object.keys(json[0]);
-                var headerRow = '';
-                var bodyRows = '';
-                classes = classes || '';
-
-                json.map(function (row) {
-                    {
-                        cols.map(function (colName) {
-                            {
-                                bodyRows += '<tr><td><b>' + colName + '</b></td><td>' + string_to_href(row[colName]) + '</td></tr>'
-                            }
-                        })
-                    }
-                });
-
-                return '<table class="' +
-                    classes +
-                    '"><thead><tr>' +
-                    headerRow +
-                    '</tr></thead><tbody>' +
-                    bodyRows +
-                    '</tbody></table>';
-            }
-        };
-
-        // infoblocks scripts
-        // info0
-        function katheclickleft(ssdeep) {
-            {
-                ssdeepinfo(ssdeep).then(function (info0) { { document.getElementById('info0').innerHTML = info0 } })
-                    .catch(error => console.error(error));
-
-            }
-        };
-        // info1
-        function katheclickright(ssdeep) {
-            {
-                ssdeepinfo(ssdeep).then(function (info1) { { document.getElementById('info1').innerHTML = info1 } })
-                    .catch(error => console.error(error));
-            }
-        };
-
-        function getsetinfo(setinfodata) {
-            {
-                document.getElementById('setinfo').innerHTML =
-                    'dbsize: ' + setinfodata.dbsize + ' | '
-                    + 'edges : ' + setinfodata.linkcount + ' | '
-                    + 'nodes : ' + setinfodata.nodecount + ' | '
-                    + 'sample: ' + setinfodata.sample
-                    ;
-
-            }
-        };
+// table from json script
+function json2table(json, classes) {
+  {
+    var cols = Object.keys(json[0]);
+    var headerRow = '';
+    var bodyRows = '';
+    classes = classes || '';
+    json.map(function (row) {
+      {
+        cols.map(function (colName) {
+          {
+            bodyRows += '<tr><td><b>' + colName + '</b></td><td>' + string_to_href(row[colName]) + '</td></tr>'
+          }
+        })
+      }
+    });
+    return '<table class="' +
+      classes +
+      '"><thead><tr>' +
+      headerRow +
+      '</tr></thead><tbody>' +
+      bodyRows +
+      '</tbody></table>';
+  }
+};
+// infoblocks scripts
+// info0
+function katheclickleft(ssdeep) {
+  {
+    ssdeepinfo(ssdeep).then(function (info0) { { document.getElementById('info0').innerHTML = info0 } })
+      .catch(error => console.error(error));
+  }
+};
+// info1
+function katheclickright(ssdeep) {
+  {
+    ssdeepinfo(ssdeep).then(function (info1) { { document.getElementById('info1').innerHTML = info1 } })
+      .catch(error => console.error(error));
+  }
+};
+function getsetinfo(setinfodata) {
+  {
+    document.getElementById('setinfo').innerHTML =
+      'dbsize: ' + setinfodata.dbsize + ' | '
+      + 'edges : ' + setinfodata.linkcount + ' | '
+      + 'nodes : ' + setinfodata.nodecount + ' | '
+      + 'sample: ' + setinfodata.sample
+    ;
+  }
+};
     </script>
     <script>
-        var graphDiv = document.getElementById("graph");
-        // we need to grab these to set them later
-        var graphwidth = '98px';
-        var graphheight = '98px';
-        fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
-            .then(response => {
-                {
-                    if (response.ok) {
-                        {
-                            handleStatus(response.status);
-                            return response.json();
-                        }
-                    } else {
-                        {
-                            handleStatus(response.status);
-                        }
-                    }
-                }
-            })
-            .then((out) => {
-                {
-                    var myData = out;
-                    var setinfo = JSON.parse(JSON.stringify(myData.info));
-                    getsetinfo(setinfo);
-                    const elem = document.getElementById('graph');
-                    const Graph = ForceGraph({ alpha: true } )
-            (elem)
-            .backgroundColor('#fdfdfc')
-            .nodeColor(d => d.color)
-            .nodeLabel(d => d.name)
-            .linkLabel(d => d.ssdeepcompare)
-
-            .linkHoverPrecision('1')
-            .linkWidth('value')
-            .graphData(myData)
-            .onNodeClick(node => {
-                {
-                    if (node !== null) {
-                        {
-                            katheclickleft(node.ssdeep);
-                            Graph.centerAt(node.x, node.y, 1000);
-                            Graph.zoom(8, 2000);
-
-                        }
-                    }
-
-                }
-            })
-            .onNodeRightClick(node => {
-                {
-                    if (node !== null) {
-                        {
-                            katheclickright(node.ssdeep);
-                            Graph.centerAt(node.x, node.y, 1000);
-                            Graph.zoom(8, 2000);
-                        }
-                    }
-                }
-            })
-
+      var graphDiv = document.getElementById("graph");
+// we need to grab these to set them hard, otherwise the graph is window.height
+// var graphwidth = window.innerWidth;
+var divheight = document.getElementById("graphrow");
+graphheight = (divheight.clientHeight - 30);
+graphwidth = (divheight.clientWidth - 30);
+console.log(divheight);
+fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
+  .then(response => {
+    {
+      if (response.ok) {
+        {
+          handleStatus(response.status);
+          return response.json();
+        }
+      } else {
+        {
+          handleStatus(response.status);
+        }
+      }
+    }
+  })
+  .then((out) => {
+    {
+      var myData = out;
+      var setinfo = JSON.parse(JSON.stringify(myData.info));
+      getsetinfo(setinfo);
+      const elem = document.getElementById('graph');
+      const Graph = ForceGraph({ alpha: true } )
+      (elem)
+        .height(graphheight)
+        .width(graphwidth)
+        .backgroundColor('#fdfdfc')
+        .nodeColor(d => d.color)
+        .nodeLabel(d => d.name)
+        .linkLabel(d => d.ssdeepcompare)
+        .linkHoverPrecision('1')
+        .linkWidth('value')
+        .graphData(myData)
+        .onNodeClick(node => {
+          {
+            if (node !== null) {
+              {
+                katheclickleft(node.ssdeep);
+                Graph.centerAt(node.x, node.y, 1000);
+                Graph.zoom(8, 2000);
+              }
+            }
+          }
+        })
+        .onNodeRightClick(node => {
+          {
+            if (node !== null) {
+              {
+                katheclickright(node.ssdeep);
+                Graph.centerAt(node.x, node.y, 1000);
+                Graph.zoom(8, 2000);
+              }
+            }
+          }
+        })
     }}).catch (err => console.log(err));
     </script>
-</body>
-
+  </body>
 </html>

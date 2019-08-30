@@ -16,48 +16,51 @@ html, body
     overflow-x: hidden;
       overflow-y: hidden;
 }
-* {
-/*  border: 1px solid #f00 !important; */
+.col,.row {
+/* border: 1px solid #f00 !important; */
 }
-  .info-overflow {
+  .overflow-auto {
     overflow: auto;
-      width: 100%;
-        height: 100%;
+  }
+  .overflow-hidden {
+    overflow: hidden;
   }
     </style>
   </head>
 
   <body>
     <!-- container -->
-    <div class="container-fluid h-100">
+    <div class="container-flex h-100">
       <!-- row search form and info -->
-      <div class="row bg-light h-25 row-eq-height">
+      <div class="row bg-light h-25">
         <!-- col search form and info -->
-        <div class="col d-flex">
-              <div class="form-group">
+        <div class="col-md-4 h-100 overflow-hidden">
+              <div class="form-group p-4">
                 <form action="/kathe/" method="get">
                   <fieldset>
-                    <label><span style="float: left;">| ssdeep | sha256 | context |</span><span style="float: right;"><span id="setinfo"></span><span> | status: </span> <span id="httpcode"></span></span></label>
+                    <label><span style="float: left;">| ssdeep | sha256 | context |</span></label>
                     <input type="text" class="form-control" name="search" id="search" value="{{querystring}}" onBlur="this.value=searchparam" />
                     <small class="form-text text-muted">Please enter a search value</small>
                   </fieldset>
                 </form>
+              <hr />
+              | status: </span> <span id="httpcode"></span> | <span id="setinfo"></span><span>
               </div>
               <!-- end card search form -->
             </div>
 
 
-              <div class="col d-flex">
-                <div class="info-overflow" id="info0">info0</div>
+              <div class="col-md-4 h-100 p-1 overflow-auto">
+                <div id="info0">info0</div>
               </div>
-              <div class="col d-flex">
-                <div class="info-overflow" id="info1">info1</div>
+              <div class="col-md-4 h-100 p-1 overflow-auto">
+                <div id="info1">info1</div>
               </div>
         <!-- end row search form and info -->
       </div>
 
       <div class="row h-75" >
-        <div class="col d-flex" id="graphrow">
+        <div class="col-md-12 h-100" id="graphrow">
           <div id="graph">
           </div>
         </div>
@@ -169,9 +172,10 @@ function getsetinfo(setinfodata) {
   {
     document.getElementById('setinfo').innerHTML =
       'dbsize: ' + setinfodata.dbsize + ' | '
-      + 'edges : ' + setinfodata.linkcount + ' | '
-      + 'nodes : ' + setinfodata.nodecount + ' | '
-      + 'sample: ' + setinfodata.sample
+      + 'edges: ' + setinfodata.linkcount + ' | '
+      + 'nodes: ' + setinfodata.nodecount + ' | '
+      + 'sample: ' + setinfodata.sample + ' | '
+      + '<br />| ' +'db updated: ' + setinfodata.timestamp + ' |'
     ;
   }
 };

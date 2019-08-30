@@ -14,6 +14,7 @@ from bottle import (TEMPLATE_PATH, HTTPResponse, default_app, install, request,
 
 import defaults
 import kathe
+from datetime import datetime
 
 CONTEXT_SET_LIMIT = defaults.CONTEXT_SET_LIMIT
 DATA_SOURCES = defaults.DATA_SOURCES
@@ -139,7 +140,6 @@ def build_ssdeep_cache(rdb, ssdeep, cachename):
                 if get_sortedset_count(rdb, cachename) < SORTED_SET_LIMIT:
                     rdb.zadd(cachename, ssdeeps.split(',')[0],
                              get_sortedset_count(rdb, cachename))
-                             
     return cachename
 
 
@@ -232,7 +232,7 @@ def check_verify(rdb, searchquery):
 
 def return_search_results(rdb, cachename, allssdeepnodes,
                           allssdeeplinks, allssdeepcontexts, sampled):
-    """ 
+    """
     store search results as json string in redis if is doesn't already
     exist, retrieve from redis and yield results.
     This also creates a "None" json cache, which is fine by me
@@ -255,7 +255,9 @@ def return_search_results(rdb, cachename, allssdeepnodes,
         search_results = rdb.get(jsoncachename)
     else:
         dbsize = rdb.scard("hashes:sha256")
-        selectioninfo = {"dbsize": '{}'.format(dbsize),
+        dbtimestamp = int(rdb.get('timestamp'))
+        selectioninfo = {"timestamp": '{}'.format(datetime.fromtimestamp(dbtimestamp / 1000000).isoformat('T', 'seconds')),
+                         "dbsize": '{}'.format(dbsize),
                          "nodecount": '{}'.format(int(cache_count)),
                          "linkcount": '{}'.format(len(allssdeeplinks)),
                          "sample": '{}'.format(sampled).lower()}
@@ -271,7 +273,7 @@ def return_search_results(rdb, cachename, allssdeepnodes,
 
     yield search_results
 
-  
+
 def find_cachename(rdb, searchquery):
     """
     Check and find the cachename for a given search query
@@ -280,7 +282,7 @@ def find_cachename(rdb, searchquery):
     sampled = False
 
     # check for invalid input
-    if (searchquery == None) or (rdb == None):
+    if (searchquery is None) or (rdb is None):
         return None
 
     searchquery_input = searchquery
@@ -363,7 +365,7 @@ def get_graph(rdb, contexts, cachename):
     graph = build_graph(rdb, contexts, cachename)
 
     return graph[0], graph[1], graph[2]
-    
+
 
 def build_graph(rdb, contexts, cachename):
     """
@@ -390,11 +392,11 @@ def build_graph(rdb, contexts, cachename):
         for infoline in allinfo:
                 return_sha256 = infoline.split(':')[1]
                 context = infoline.split(':')[3]
-                #logging.debug(f'context: {context}')
+                # logging.debug(f'context: {context}')
                 # The first infoline will determine the "most significant" context of the ssdeep.
                 contextlist.append(context)
         context = unique_context_list(contextlist)
-        #logging.debug(f'contextlist: {contextlist}')
+        # logging.debug(f'contextlist: {contextlist}')
 
         fullcontextlist = ('|').join(context)
         groupid = rdb.zrank(contexts, context[0])
@@ -451,19 +453,20 @@ def build_graph(rdb, contexts, cachename):
 
     return allssdeepnodes, allssdeeplinks, allssdeepcontexts
 
+
 def get_cached_graph(rdb, cachename):
     """
     TODO: Retrieve cached graph data from redis
     """
-    graphdata = []
+    # graphdata = []
 
     split_cachename = cachename.rsplit(':', 1)
 
     # search for graph results in the cache
     try:
         allssdeepnodes = rdb.smembers(
-            f"{split_cachename[0]}:nodes:{split_cachename[1]}") #ew
- 
+            f"{split_cachename[0]}:nodes:{split_cachename[1]}")  # ew
+
         allssdeeplinks = rdb.smembers(
             f"{split_cachename[0]}:links:{split_cachename[1]}")
 
@@ -471,7 +474,7 @@ def get_cached_graph(rdb, cachename):
             f"{split_cachename[0]}:contexts:{split_cachename[1]}")
 
     except Exception as cache_error:
-        logger.info(f"Graph cache error: {cache_error}")
+        # logger.info(f"Graph cache error: {cache_error}")
         return None
 
     return allssdeepnodes, allssdeeplinks, allssdeepcontexts
@@ -480,6 +483,8 @@ def get_cached_graph(rdb, cachename):
     # def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
 
 # web service routes begin here
+
+
 @route('/')
 def hello():
     """ Welcome message, redirects to the main gui """
@@ -563,7 +568,7 @@ def contextinfo(rdb, querystring=None):
                                      allssdeeplinks, allssdeepcontexts, sampled)
 
     cachename = find_cachename(rdb, searchquery)
-    
+
     if cachename is None:
         # no results found for query, terminate with empty results
         return return_search_results(rdb, cachename, allssdeepnodes,
@@ -622,7 +627,7 @@ def server_static(filepath):
 
 
 if __name__ == '__main__':
-    run(host=KATHE_HOST, port=KATHE_PORT, debug=False)
+    run(host=KATHE_HOST, port=KATHE_PORT, debug=True)
 # Run bottle in application mode.
 # Required in order to get the application working with uWSGI!
 else:

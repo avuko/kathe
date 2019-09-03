@@ -409,7 +409,6 @@ def build_graph(rdb, contexts, cachename):
         fullcontextlist = ('|').join(context)
         groupid = rdb.zrank(allcontexts, contexts[0])
         newnode = {'id': rdb.zrank(cachename, ssdeep),
-                   # XXX should be inputname
                    'inputname': return_inputname,
                    'sha256': return_sha256,
                    'ssdeep': f'{ssdeep}',

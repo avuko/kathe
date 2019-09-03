@@ -4,6 +4,7 @@
 For the stand alone CLI implementation, see parent directory.
 """
 from datetime import datetime
+import ast
 import os
 import re
 import unicodedata
@@ -258,11 +259,14 @@ def new_hash(inputsha256):
     return new
 
 
-def two_item_list_to_kv(kv_input):
+def zrange_to_json(zrange_input):
     my_list = []
-    for kv in kv_input:
-        # print(kv)
-        my_list.append({kv[0]: int(kv[1])})
+    for kv in zrange_input:
+        key_object = ast.literal_eval(kv[0])
+        for k in key_object:
+            key_object[k]['count'] = int(kv[1])
+            jsonlist = [k, key_object[k]]
+        my_list.append(jsonlist)
     return my_list
 
 

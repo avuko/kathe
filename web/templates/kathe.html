@@ -32,35 +32,48 @@ html, body
     <!-- container -->
     <div class="container-flex h-100">
       <!-- row search form and info -->
-      <div class="row bg-light h-25">
+      <div class="row bg-dark h-25">
         <!-- col search form and info -->
         <div class="col-md-4 h-100 overflow-hidden">
               <div class="form-group p-4">
                 <form action="/kathe/" method="get">
                   <fieldset>
-                    <label><span style="float: left;">| ssdeep | sha256 | context |</span></label>
-                    <input type="text" class="form-control" name="search" id="search" value="{{querystring}}" placeholder="Please enter a search value" onBlur="this.value=searchparam" />
+                    <label class="text-muted">| <span id="httpcode" data-toggle="tooltip" data-placement="top" title="HTTP response code">___</span> |<span id="setinfo"></span><span></label>
+                    <input type="text" class="form-control bg-secondary text-white" name="search" id="search" value="{{querystring}}" placeholder="Please enter a ssdeep|sha256|context string" onBlur="this.value=searchparam" />
                   </fieldset>
                 </form>
-              <hr />
-              | status: </span> <span id="httpcode">___</span> | <span id="setinfo"></span><span>
+              
               </div>
               <!-- end card search form -->
+              <div class="form-group pl-4 pr-4">
+                <form action="/kathe/?" method="GET" id="contextform">
+                </form>
+    <label for="contextform" class="text-muted">Contexts</label>
+    <select name="search" id="contextselect" class="form-control bg-secondary text-white" form="contextform" onclick='this.form.submit()'>
+      <option value="" disabled selected>Select a context</option>
+      <!-- XXX we'll build the context dropdown here -->
+      <option>win.emotet</option>
+      <option>win.dorshel</option>
+      <option>win.isfb</option>
+      <option>win.dreambot</option>
+      <option>win.doesnotexist</option>
+    </select>
+  </div>
             </div>
 
 
               <div class="col-md-4 h-100 p-1 overflow-auto">
-                <div id="info0">info0</div>
+                <div id="info0" class="text-muted">Left-click node for detailed info</div>
               </div>
               <div class="col-md-4 h-100 p-1 overflow-auto">
-                <div id="info1">info1</div>
+                <div id="info1" class="text-muted">Right-click node for detailed info</div>
               </div>
         <!-- end row search form and info -->
       </div>
 
-      <div class="row h-75" >
-        <div class="col-md-12 h-100" id="graphrow">
-          <div id="graph">
+      <div class="row h-75 bg-dark" >
+        <div class="col-md-12 h-100 bg-dark" id="graphrow">
+          <div id="graph" class="bg-dark">
           </div>
         </div>
       </div>
@@ -170,11 +183,11 @@ function katheclickright(ssdeep) {
 function getsetinfo(setinfodata) {
   {
     document.getElementById('setinfo').innerHTML =
-      'dbsize: ' + setinfodata.dbsize + ' | '
-      + 'edges: ' + setinfodata.linkcount + ' | '
-      + 'nodes: ' + setinfodata.nodecount + ' | '
-      + 'sample: ' + setinfodata.sample + ' | '
-      + '<br />| ' +'db updated: ' + setinfodata.timestamp + ' |'
+      '<span data-toggle="tooltip" data-placement="top" title="Database size"> ' + setinfodata.dbsize + ' </span>' +
+      '|<span data-toggle="tooltip" data-placement="top" title="Link count"> ' + setinfodata.linkcount + ' </span>' +
+      '|<span data-toggle="tooltip" data-placement="top" title="Node count"> ' + setinfodata.nodecount + ' </span>' +
+      '|<span data-toggle="tooltip" data-placement="top" title="Sample"> ' + setinfodata.sample + ' </span>' +
+      '|<span data-toggle="tooltip" data-placement="top" title="Last DB update"> ' + setinfodata.timestamp + ' </span>|'
     ;
   }
 };
@@ -212,7 +225,7 @@ fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
       (elem)
         .height(graphheight)
         .width(graphwidth)
-        .backgroundColor('#fdfdfc')
+        .backgroundColor('#343a40')
         .nodeColor(d => d.color)
         .nodeLabel(d => d.inputname)
         .linkLabel(d => d.ssdeepcompare)

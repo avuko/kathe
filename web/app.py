@@ -428,8 +428,6 @@ def build_graph(rdb, contexts, cachename):
                                                            'add')
 
         allssdeepcontexts = contexts
-        # XXX the contexts list should be {"context": {"groupid": n,
-        #                                  "color": "s", "count": n}
         for context in contexts:
             print(context)
             groupid = rdb.zrank(allcontexts, context)
@@ -466,7 +464,6 @@ def build_graph(rdb, contexts, cachename):
                                                min=0, max="+inf",
                                                withscores=True))
     allssdeepcontexts = list(kathe.zrange_to_json(allssdeepcontexts))
-    # print(allssdeepcontexts)
     return allssdeepnodes, allssdeeplinks, allssdeepcontexts
 
 

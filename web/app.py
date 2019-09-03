@@ -164,6 +164,13 @@ def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
         rdb.srem('cachecontrol', cachename)
         rdb.delete(cachename)
         cachelength = rdb.scard(cachename)
+    elif action == 'zincrby':
+        if cachetype is not None:
+            cachename = cachename.split(':')
+            cachename[-1:-1] = [cachetype]
+            cachename = ':'.join(cachename)
+        rdb.zincrby(cachename, info, amount=1)
+        cachelength = rdb.zcard(cachename)
     return (cachename, cachelength)
 
 
@@ -387,7 +394,7 @@ def build_graph(rdb, contexts, cachename):
         # names:context is a list with a zscore based on the number of occurences of a certain context
         # and a zrank function on an ordered set, so we can use it to get the index of a context as integer
         # for our grouping
-        contexts = 'names:context'
+        allcontexts = 'names:context'
         contextlist = []
         for infoline in allinfo:
                 return_sha256 = infoline.split(':')[1]
@@ -395,23 +402,24 @@ def build_graph(rdb, contexts, cachename):
                 # logging.debug(f'context: {context}')
                 # The first infoline will determine the "most significant" context of the ssdeep.
                 contextlist.append(context)
-        context = unique_context_list(contextlist)
+        contexts = unique_context_list(contextlist)
         # logging.debug(f'contextlist: {contextlist}')
 
         fullcontextlist = ('|').join(context)
-        groupid = rdb.zrank(contexts, context[0])
+        groupid = rdb.zrank(allcontexts, contexts[0])
         newnode = {'id': rdb.zrank(cachename, ssdeep),
-                   'name': context,
+                   # XXX should be inputname
+                   'name': contexts,
                    'sha256': return_sha256,
                    'ssdeep': f'{ssdeep}',
                    'main_context': context[0],
                    'groupid': groupid,
                    'color': aphash_color(groupid),
-                   'contexts': fullcontextlist}
+                   'contexts': contexts}
 
-        logging.debug(rdb.zrank(contexts, context[0]),
-                      contexts, contextlist, fullcontextlist,
-                      contexts, context)
+        logging.debug(rdb.zrank(allcontexts, context[0]),
+                      allcontexts, contextlist, fullcontextlist,
+                      allcontexts, contexts)
 
         allssdeepnodes, allssdeepnodescount = cache_action(rdb,
                                                            cachename,
@@ -419,13 +427,17 @@ def build_graph(rdb, contexts, cachename):
                                                            newnode,
                                                            'add')
 
-        allssdeepcontexts = context
-        allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
-                                                                cachename,
-                                                                'contexts',
-                                                                newnode,
-                                                                'add')
-
+        allssdeepcontexts = contexts
+        # XXX I want the contexts to be a unique list with counts (zrange).
+        # r.zincrby(allssdeepcontexts, '{}'.format(singlecontext), amount=1)
+        # print(allssdeepcontexts, contexts)
+        # kathe.incremental_add_to_zset(allssdeepcontexts, context)
+        for context in contexts:
+            allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
+                                                                    cachename,
+                                                                    'contexts',
+                                                                    context,
+                                                                    'zincrby')
         for k in alllinks:
             linkssdeep = k[0].split(',')[0]
             # limit to prevent explosion
@@ -449,8 +461,11 @@ def build_graph(rdb, contexts, cachename):
                            for x in list(rdb.smembers(allssdeepnodes))])
     allssdeeplinks = list([ast.literal_eval(x)
                            for x in list(rdb.smembers(allssdeeplinks))])
-    allssdeepcontexts = contexts
-
+    allssdeepcontexts = list(rdb.zrangebyscore(allssdeepcontexts,
+                                               min=0, max="+inf",
+                                               withscores=True))
+    allssdeepcontexts = list(kathe.two_item_list_to_kv(allssdeepcontexts))
+    # print(allssdeepcontexts)
     return allssdeepnodes, allssdeeplinks, allssdeepcontexts
 
 

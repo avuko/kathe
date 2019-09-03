@@ -48,7 +48,7 @@ html, body
               <div class="form-group pl-4 pr-4">
                 <form action="/kathe/?" method="GET" id="contextform">
                 </form>
-    <label for="contextform" class="text-muted">Contexts</label>
+    <label for="contextform" class="text-muted">Contexts in this graph</label>
     <select name="search" id="contextselect" class="form-control bg-secondary text-white" form="contextform" onclick='this.form.submit()'>
       <option value="" disabled selected>Select a context</option>
       <!-- XXX we'll build the context dropdown here -->
@@ -225,7 +225,7 @@ fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
       (elem)
         .height(graphheight)
         .width(graphwidth)
-        .backgroundColor('#343a40')
+        .backgroundColor('none transparent')
         .nodeColor(d => d.color)
         .nodeLabel(d => d.inputname)
         .linkLabel(d => d.ssdeepcompare)

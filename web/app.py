@@ -399,6 +399,7 @@ def build_graph(rdb, contexts, cachename):
         for infoline in allinfo:
                 return_sha256 = infoline.split(':')[1]
                 context = infoline.split(':')[3]
+                return_inputname = infoline.split(':')[5]
                 # logging.debug(f'context: {context}')
                 # The first infoline will determine the "most significant" context of the ssdeep.
                 contextlist.append(context)
@@ -409,10 +410,10 @@ def build_graph(rdb, contexts, cachename):
         groupid = rdb.zrank(allcontexts, contexts[0])
         newnode = {'id': rdb.zrank(cachename, ssdeep),
                    # XXX should be inputname
-                   'name': contexts,
+                   'inputname': return_inputname,
                    'sha256': return_sha256,
                    'ssdeep': f'{ssdeep}',
-                   'main_context': context[0],
+                   'main_context': contexts[0],
                    'groupid': groupid,
                    'color': aphash_color(groupid),
                    'contexts': contexts}
@@ -428,10 +429,8 @@ def build_graph(rdb, contexts, cachename):
                                                            'add')
 
         allssdeepcontexts = contexts
-        # XXX I want the contexts to be a unique list with counts (zrange).
-        # r.zincrby(allssdeepcontexts, '{}'.format(singlecontext), amount=1)
-        # print(allssdeepcontexts, contexts)
-        # kathe.incremental_add_to_zset(allssdeepcontexts, context)
+        # XXX the contexts list should be {"context": {"groupid": n,
+        #                                  "color": "s", "count": n}
         for context in contexts:
             allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
                                                                     cachename,

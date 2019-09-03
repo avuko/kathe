@@ -4,7 +4,7 @@
 For the stand alone CLI implementation, see parent directory.
 """
 from datetime import datetime
-# import json
+import ast
 import os
 import re
 import unicodedata
@@ -259,6 +259,17 @@ def new_hash(inputsha256):
     return new
 
 
+def zrange_to_json(zrange_input):
+    my_list = []
+    for kv in zrange_input:
+        key_object = ast.literal_eval(kv[0])
+        for k in key_object:
+            key_object[k]['count'] = int(kv[1])
+            jsonlist = [k, key_object[k]]
+        my_list.append(jsonlist)
+    return my_list
+
+
 def add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext):
     inputsha256 = inputsha256.lower()
     # If the file is new, add all information
@@ -318,3 +329,8 @@ def rest_add(info_object):
         input_contexts = ','.join(contexts)
         add_ssdeep_to_db(inputname, input_sha256, input_ssdeep, input_contexts)
         return True
+
+
+def incremental_add_to_zset(zset_name, zset_members):
+    for zset_member in zset_members:
+        r.zincrby(zset_name, zset_member, amount=1)

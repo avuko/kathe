@@ -1,69 +1,85 @@
 <!DOCTYPE html>
-<head>
-  <meta charset="utf-8">
-  <link rel="stylesheet" href="/static/fira.css">
-  <link rel="stylesheet" href="/static/kathe.css">
-  <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
-</head>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="/static/fira.css">
+    <!-- <link rel="stylesheet" href="/static/kathe.css"> -->
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+    <style>
+/* #graph {
+padding: 0;
+margin: 0;
+} */
+html, body
+{
+  height: 100%;
+    overflow-x: hidden;
+      overflow-y: hidden;
+}
+.col,.row {
+/* border: 1px solid #f00 !important; */
+}
+  .overflow-auto {
+    overflow: auto;
+  }
+  .overflow-hidden {
+    overflow: hidden;
+  }
+    </style>
+  </head>
 
-<body style="display:bock; height: 100vh;">
-  <script>
-    var urlParams = new URLSearchParams(window.location.search);
-var searchparam = urlParams.get('search');
-  </script>
-  <div class="container-fluid h-100 d-flex flex-column fill">
-
-    <div class="row bg-light">
-      <div class="col">
-        <div class="form-group">
-          <form action="/kathe/" method="get">
-            <fieldset>
-              <label>| ssdeep | sha256 | context |</label>
-              <input type="text" class="form-control" name="search" id="search" value="{{querystring}}" onBlur="this.value=searchparam" />
-              <small class="form-text text-muted">Please enter a search value</small>
-            </fieldset>
-          </form>
-        </div>
-        <span class="align-items-center" id="setinfo"></span><span> | status: </span><span id="httpcode"></span>
-
-      </div>
-    </div>
-
-    <div class="col w-100 p-0">
-        <div class="card h-100 p-0">
-          <div class="card-body fill">
-            <div id="graph">
+  <body>
+    <!-- container -->
+    <div class="container-flex h-100">
+      <!-- row search form and info -->
+      <div class="row bg-light h-25">
+        <!-- col search form and info -->
+        <div class="col-md-4 h-100 overflow-hidden">
+              <div class="form-group p-4">
+                <form action="/kathe/" method="get">
+                  <fieldset>
+                    <label><span style="float: left;">| ssdeep | sha256 | context |</span></label>
+                    <input type="text" class="form-control" name="search" id="search" value="{{querystring}}" placeholder="Please enter a search value" onBlur="this.value=searchparam" />
+                  </fieldset>
+                </form>
+              <hr />
+              | status: </span> <span id="httpcode">___</span> | <span id="setinfo"></span><span>
+              </div>
+              <!-- end card search form -->
             </div>
+
+
+              <div class="col-md-4 h-100 p-1 overflow-auto">
+                <div id="info0">info0</div>
+              </div>
+              <div class="col-md-4 h-100 p-1 overflow-auto">
+                <div id="info1">info1</div>
+              </div>
+        <!-- end row search form and info -->
+      </div>
+
+      <div class="row h-75" >
+        <div class="col-md-12 h-100" id="graphrow">
+          <div id="graph">
           </div>
         </div>
-    </div>
-
-    <div class="row p-3" style="height: 20vh;">
-      <div class="col p-0">
-        <!-- <div class="card card-body h-100 w-50" id="info0">info0</div> -->
-        <div class="card card-body overflow-auto fill" id="info0">info0</div>
       </div>
-      <div class="col p-0">
-        <!-- <div class="card card-body h-100 w-50" id="info1">info1</div> -->
-        <div class="card card-body overflow-auto fill" id="info1">info1</div>
-      </div>
+      <!-- end container -->
     </div>
-
-  </div>
-
-  <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script>
-    var searchvalue = decodeURIComponent("{{querystring2}}");
+    <script>
+      var urlParams = new URLSearchParams(window.location.search);
+var searchparam = urlParams.get('search');
+    </script>
+    <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script>
+      var searchvalue = decodeURIComponent("{{querystring2}}");
 var unescaped_searchvalue = "{{querystring2}}";
-
 // function to show fetch status
 function handleStatus(res_status) {
   {
     document.getElementById('httpcode').innerHTML = res_status;
   }
 }
-
-
 // function to turn 'http://<something>' strings into hrefs
 function string_to_href(inputstring) {
   {
@@ -87,32 +103,30 @@ function string_to_href(inputstring) {
     return returnstring;
   }
 }
-  </script>
-  <script src="/static/2d/force-graph.js"></script>
-  <script>
-    // fetch ssdeephash info
-    function ssdeepinfo(ssdeep) {
-      {
-        return fetch("/info/?ssdeephash=" + encodeURIComponent(ssdeep), { cache: "no-store" })
-        // .then(handleErrors)
-          .then(response => {
-            {
-              if (response.ok) {
-                {
-                  handleStatus(response.status);
-                  return response.json();
-                }
-              } else {
-                {
-                  handleStatus(response.status);
+    </script>
+    <script src="/static/2d/force-graph.js"></script>
+    <script>
+      // fetch ssdeephash info
+      function ssdeepinfo(ssdeep) {
+        {
+          return fetch("/info/?ssdeephash=" + encodeURIComponent(ssdeep), { cache: "no-store" })
+          // .then(handleErrors)
+            .then(response => {
+              {
+                if (response.ok) {
+                  {
+                    handleStatus(response.status);
+                    return response.json();
+                  }
+                } else {
+                  {
+                    handleStatus(response.status);
+                  }
                 }
               }
-            }
-          })
-          .then(jsonresponse => json2table(jsonresponse));
-      }}
-
-
+            })
+            .then(jsonresponse => json2table(jsonresponse));
+        }}
 // table from json script
 function json2table(json, classes) {
   {
@@ -120,7 +134,6 @@ function json2table(json, classes) {
     var headerRow = '';
     var bodyRows = '';
     classes = classes || '';
-
     json.map(function (row) {
       {
         cols.map(function (colName) {
@@ -130,7 +143,6 @@ function json2table(json, classes) {
         })
       }
     });
-
     return '<table class="' +
       classes +
       '"><thead><tr>' +
@@ -140,14 +152,12 @@ function json2table(json, classes) {
       '</tbody></table>';
   }
 };
-
 // infoblocks scripts
 // info0
 function katheclickleft(ssdeep) {
   {
     ssdeepinfo(ssdeep).then(function (info0) { { document.getElementById('info0').innerHTML = info0 } })
       .catch(error => console.error(error));
-
   }
 };
 // info1
@@ -157,24 +167,26 @@ function katheclickright(ssdeep) {
       .catch(error => console.error(error));
   }
 };
-
 function getsetinfo(setinfodata) {
   {
     document.getElementById('setinfo').innerHTML =
       'dbsize: ' + setinfodata.dbsize + ' | '
-      + 'edges : ' + setinfodata.linkcount + ' | '
-      + 'nodes : ' + setinfodata.nodecount + ' | '
-      + 'sample: ' + setinfodata.sample
+      + 'edges: ' + setinfodata.linkcount + ' | '
+      + 'nodes: ' + setinfodata.nodecount + ' | '
+      + 'sample: ' + setinfodata.sample + ' | '
+      + '<br />| ' +'db updated: ' + setinfodata.timestamp + ' |'
     ;
-
   }
 };
-  </script>
-  <script>
-    var graphDiv = document.getElementById("graph");
-// we need to grab these to set them later
-var graphwidth = '98px';
-var graphheight = '98px';
+    </script>
+    <script>
+      var graphDiv = document.getElementById("graph");
+// we need to grab these to set them hard, otherwise the graph is window.height
+// var graphwidth = window.innerWidth;
+var divheight = document.getElementById("graphrow");
+graphheight = (divheight.clientHeight - 30);
+graphwidth = (divheight.clientWidth - 30);
+console.log(divheight);
 fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
   .then(response => {
     {
@@ -198,11 +210,12 @@ fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
       const elem = document.getElementById('graph');
       const Graph = ForceGraph({ alpha: true } )
       (elem)
+        .height(graphheight)
+        .width(graphwidth)
         .backgroundColor('#fdfdfc')
         .nodeColor(d => d.color)
-        .nodeLabel(d => d.name)
+        .nodeLabel(d => d.inputname)
         .linkLabel(d => d.ssdeepcompare)
-
         .linkHoverPrecision('1')
         .linkWidth('value')
         .graphData(myData)
@@ -213,10 +226,8 @@ fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
                 katheclickleft(node.ssdeep);
                 Graph.centerAt(node.x, node.y, 1000);
                 Graph.zoom(8, 2000);
-
               }
             }
-
           }
         })
         .onNodeRightClick(node => {
@@ -230,8 +241,7 @@ fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
             }
           }
         })
-
     }}).catch (err => console.log(err));
-  </script>
-</body>
-
+    </script>
+  </body>
+</html>

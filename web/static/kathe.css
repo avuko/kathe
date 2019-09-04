@@ -1,121 +1,67 @@
-body {
-  font-family: 'Fira Sans';
-  font-weight: 300;
-  font-size: large;
-  background-color: #fdfdfc;
-  border: 0;
-  margin: 0;
-  overflow: hidden;
-  }
-
 #setinfo {
-  display: block;
-  position: absolute;
-  right: 0px;
-  top: 0px;
-  margin-right: 0;
-  margin-top: 0;
-  border: solid 1px #999;
-  background-color: none transparent;
-  z-index: 999;
-  font-family: 'Fira Mono'; font-size: large;
+  /* #position: absolute;
+  z-index: 1; */
 }
 
-p {
-  font-family: 'Fira Sans';
-  font-weight: 300;
-  font-size: large;
-  background: none transparent;}
+html,body {
+height: 100%;
+min-height: 100%;
+}
 
 td {
+  /*
 vertical-align: top;
 text-align: left;
+*/
 }
+
 #chart {
-        display: block;
+/*        display: block;
         position: relative;
         left: 0px;
         right: 0px;
         top: 0px;
-        bottom: 0px;
-}
-
-#ssdeepinfo, #ssdeephash, h1, input, select, textarea, a {
-font-family: 'Fira Mono'; font-size: large;
-}
-fieldset, textarea, input, select {
-border: solid 1px #999;
-background-color:#f9f9f9;
+        bottom: 0px; */
 }
 
 #searchform {
-background: none transparent;
+/* background: none transparent;
 position: fixed;
 top: 0;
 left:0;
-z-index: 1;
-}
-legend {
-background: none #fdfdfc;
-}
-
-form {
-padding-top: 1vh;
-display:block;
+z-index: 1; */
 }
 
 input {
-width: 50vw;
+/* width: 50vw; */
 }
 
 #graph {
-  z-index: 0;
+/*  z-index: 0;
   display: inline-block;
   width:  100vw;
-  height: 90vh;
+  height: 70vh;
   border: 0;
   margin: 0;
   top: 0;
-  background: none transparent;
+  background: none transparent; */
 }
 
-
+/*
 #info0 {
   z-index: 1;
-  display: inline-block;
-  width: 50%;
   font-size: smaller;
-  line-height: 1.2;
-  height: 10em;
-  border: solid 1px #999;
-  background-color: #f9f9f9;
   position: fixed;
-  bottom: 0;
-  left: 1px;
-  padding: 0;
-  margin: 0;
-  padding: 2px;
-  margin: 0;
   overflow-y: scroll;
   overflow-x: hidden;
+  height: 20vh;
 }
 
 #info1 {
   z-index: 1;
-  display: inline-block;
-  width: 50%;
   font-size: smaller;
-  line-height: 1.2;
-  height: 10em;
-  border: solid 1px #999;
-  background-color: #f9f9f9;
   position: fixed;
-  bottom: 0;
-  right: 1px;
-  padding: 2px;
-  margin: 0;
-  opacity: 1;
   overflow-y: scroll;
   overflow-x: hidden;
 }
-
+*/

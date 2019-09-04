@@ -4,10 +4,12 @@
 For the stand alone CLI implementation, see parent directory.
 """
 from datetime import datetime
-# import json
+import ast
 import os
+import re
 import unicodedata
 import logging
+import defaults
 
 logger = logging.getLogger()
 
@@ -33,18 +35,31 @@ inputname = None
 inputssdeep = None
 inputsha256 = None
 
-# set the DB number to the default value (check app.py, these should match)
-redisdbnr = 13
+# set the DB number and host to the default value
+REDIS_DB = defaults.REDIS_DB
+REDIS_HOST = defaults.REDIS_HOST
 
 # Connect to redis.
 # Also, convert all responses to strings, not bytes
-r = redis.StrictRedis('localhost', 6379, db=redisdbnr, charset="utf-8",
+r = redis.StrictRedis(REDIS_HOST, 6379, db=REDIS_DB, charset="utf-8",
                       decode_responses=True)
 
 
 def timestamp():
     ts = int(datetime.now().strftime("%s") + str(datetime.now().microsecond))
     return ts
+
+
+def check_sha256(sha256_string):
+    sha256check = re.compile(r"^[a-f0-9]{64}(:.+)?$", re.IGNORECASE)
+    result = bool(sha256check.match(sha256_string))
+    return result
+
+
+def check_ssdeep(ssdeep_string):
+    ssdeepcheck = re.compile(r"^[0-9]*\:[a-z0-9+/]*\:[a-z0-9+/]*$", re.IGNORECASE)
+    result = bool(ssdeepcheck.match(ssdeep_string))
+    return result
 
 
 def remove_control_characters(s):
@@ -148,6 +163,7 @@ def add_info(inputname, inputsha256, inputssdeep, inputcontext):
     linked and retrievable."""
     inputcontext = clean_context(inputcontext)
     splitcontext = inputcontext.split('|')
+    inputsha256 = inputsha256.lower()
 
     r.sadd('info:inputname:{}'.format(inputname),
            'sha256:{}:ssdeep:{}:context:{}'.format(inputsha256,
@@ -220,7 +236,7 @@ def return_results(inputname, inputsha256, inputssdeep, inputcontext):
     last but not least, it siblings (partially matching ssdeep hashes)."""
     info = dict()
     info['inputname'] = inputname
-    info['sha256'] = inputsha256
+    info['sha256'] = inputsha256.lower()
     info['ssdeep'] = inputssdeep
     info['context'] = inputcontext
     info['other_inputnames'] = [inputnames.split(':')[-1]
@@ -235,6 +251,7 @@ def return_results(inputname, inputsha256, inputssdeep, inputcontext):
 def new_hash(inputsha256):
     """ To speed things up, we take a different path if the file is already known.
     return True if new, False if the hash is already known."""
+    inputsha256 = inputsha256.lower()
     if r.sismember("hashes:sha256", '{}'.format(inputsha256)):
         new = False
     else:
@@ -242,7 +259,19 @@ def new_hash(inputsha256):
     return new
 
 
+def zrange_to_json(zrange_input):
+    my_list = []
+    for kv in zrange_input:
+        key_object = ast.literal_eval(kv[0])
+        for k in key_object:
+            key_object[k]['count'] = int(kv[1])
+            jsonlist = [k, key_object[k]]
+        my_list.append(jsonlist)
+    return my_list
+
+
 def add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext):
+    inputsha256 = inputsha256.lower()
     # If the file is new, add all information
     if new_hash(inputsha256):
         inputname = clean_name(inputname)
@@ -271,20 +300,37 @@ def add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext):
     # or else, add only the new info
     else:
         inputname = clean_name(inputname)
+        inputsha256 = inputsha256.lower()
         add_info(inputname, inputsha256, inputssdeep, inputcontext)
 
 
 def rest_add(info_object):
     """This function should receive a list of dictionaries.
     Each dictionary must consist of:
-    {"inputname": <>, "sha256": <>, "ssdeep": <>, "contexts": [<>, "<>, "<>"]}
+    {"inputname": <>, "sha256": <>, "ssdeep": <>, "contexts": ["<>", "<>", "<>"]}
     The most important context must be the first in the list."""
     logger.debug(f"=== DEBUG === : ingesting info_object: {info_object}")
 
+    # sanity check
     for rest_info in info_object:
         inputname = clean_name(rest_info['inputname'])
-        input_sha256 = rest_info['sha256']
-        input_ssdeep = rest_info['ssdeep']
+        if check_sha256(rest_info['sha256']):
+            input_sha256 = rest_info['sha256'].lower()
+        else:
+            return False
+        if check_ssdeep(rest_info['ssdeep']):
+            input_ssdeep = rest_info['ssdeep']
+        else:
+            return False
+        if len(rest_info['contexts']) == 0:
+            return False
+
         contexts = list(map(lambda x: clean_context(x), rest_info['contexts']))
         input_contexts = ','.join(contexts)
         add_ssdeep_to_db(inputname, input_sha256, input_ssdeep, input_contexts)
+        return True
+
+
+def incremental_add_to_zset(zset_name, zset_members):
+    for zset_member in zset_members:
+        r.zincrby(zset_name, zset_member, amount=1)

@@ -71,7 +71,7 @@ if options.context:
 else:
     inputcontext = 'None'
 
-# By default, store in Redis db 14.
+# By default, store in Redis db 13.
 if options.redisdb:
     redisdbnr = options.redisdb
 else:
@@ -348,12 +348,10 @@ if options.filename:
     inputname = options.filename
     inputsha256 = file_sha256('{}'.format(inputname))
     inputssdeep = file_ssdeep('{}'.format(inputname))
-    print('inputname')
     add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext)
 
 elif options.jason:
     jasonstring = options.jason
-    print(jasonstring)
     jasoninfo = json.loads(jasonstring)
     inputssdeep = jasoninfo[0]
     inputname = jasoninfo[1]

@@ -4,33 +4,33 @@
     <meta charset="utf-8">
     <link rel="stylesheet" href="/static/fira.css">
     <link rel="stylesheet" href="/static/kathe.css">
-    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">                                                                                                                                                                                                                                                                                            
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">  
+    <link rel="stylesheet" href="/static/dark-mode.css">
   </head>
 
   <body>
-    <!-- container -->
+    <!-- primary container -->
     <div class="container-flex h-100">
-      <!-- row search form and info -->
-      <div class="row bg-dark h-25">
-        <!-- col search form and info -->
-        <div class="col-md-4 h-100 overflow-hidden">
-          <div class="form-group p-4">
-            <form action="/kathe/" method="get">
-              <fieldset>
-                <label class="text-muted">| <span id="httpcode" data-toggle="tooltip" data-placement="top"
-                    title="HTTP response code">___</span> |<span id="setinfo"></span><span></label>
-                <input type="text" class="form-control bg-secondary text-white" name="search" id="search" value="{{querystring}}"
-                  placeholder="Please enter a ssdeep|sha256|context string" onBlur="this.value=searchparam" />
-              </fieldset>
-            </form>
-          
-          </div>
-          <!-- end card search form -->
-          <div class="form-group pl-4 pr-4">
-            <form action="/kathe/?" method="GET" id="contextform">
-            </form>
-            <label for="contextform" class="text-muted">Contexts in this graph</label>
-            <select name="search" id="contextselect" class="form-control bg-secondary text-white" form="contextform" onclick='this.form.submit()'>
+
+
+      <div class="navbar bg-light">
+
+          <form action="/kathe/" method="get" class="form-inline col-md-5">
+              <input type="text" class="form-control col-sm-6" name="search" id="search" value="{{querystring}}"
+                placeholder="Please enter a ssdeep|sha256|context string" onBlur="this.value=searchparam" />
+              <label class="text-muted col-sm-6"> | 
+                <span id="httpcode" data-toggle="tooltip" data-placement="top"title="HTTP response code">
+                  ___
+                </span> 
+                |
+                <span id="setinfo"></span>
+                </label>
+          </form>
+
+          <form action="/kathe/?" method="GET" class="form-inline col-md-5" id="contextform">
+            <label for="contextform" class="text-muted col-sm-6">Contexts in this graph:</label>
+            <select name="search" id="contextselect" class="form-control col-sm-6" form="contextform"
+              onclick='this.form.submit()'>
               <option value="" disabled selected>Select a context</option>
               <!-- XXX we'll build the context dropdown here -->
               <option>win.emotet</option>
@@ -39,29 +39,37 @@
               <option>win.dreambot</option>
               <option>win.doesnotexist</option>
             </select>
+          </form>
+
+          <div class="custom-control custom-switch">
+            <input type="checkbox" class="custom-control-input" id="darkSwitch">
+            <label class="custom-control-label" for="darkSwitch">Dark Mode</label>
+          </div>
+
+      </div>
+    
+      <div class="row h-100" >
+        <div class="col-md-12 h-100" id="graphrow">
+          <div id="graph" class="">
           </div>
         </div>
-          <div class="col-md-4 h-100 p-1 overflow-auto">
-            <div id="info0" class="text-muted">Left-click node for detailed info</div>
-          </div>
-          <div class="col-md-4 h-100 p-1 overflow-auto">
-            <div id="info1" class="text-muted">Right-click node for detailed info</div>
-          </div>
+      </div>
+      
+
+      <!-- row search form and info -->
+      <div class="row h-25">
+        <!-- col search form and info -->
+        <div class="col-md-4 h-100 overflow-auto">
+          <div id="info0" class="text-muted">Left-click node for detailed info</div>
+        </div>
+        <div class="col-md-4 h-100 overflow-auto">
+          <div id="info1" class="text-muted">Right-click node for detailed info</div>
+        </div>
         <!-- end row search form and info -->
       </div>
-
-      <div class="row h-75 bg-dark" >
-        <div class="col-md-12 h-100 bg-dark" id="graphrow">
-          <div id="graph" class="bg-dark">
-          </div>
-        </div>
-      </div>
-      <!-- end container -->
+    <!-- end container -->
     </div>
-    
-    <script src="/static/2d/force-graph.js"></script>
-    <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
       var urlParams = new URLSearchParams(window.location.search);
       var searchparam = urlParams.get('search');
@@ -70,7 +78,12 @@
       var searchvalue = decodeURIComponent("{{querystring2}}");
       var unescaped_searchvalue = "{{querystring2}}";
     </script>
-
+    
+    <!-- Load scripts -->
+    <script src="/static/2d/force-graph.js"></script>
     <script src="/static/2d/kathe.js"></script>
+    <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/dark-mode-switch.min.js"></script>
+    
   </body>
 </html>

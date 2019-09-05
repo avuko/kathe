@@ -4,6 +4,7 @@ function handleStatus(res_status) {
         document.getElementById('httpcode').innerHTML = res_status;
     }
 }
+
 // function to turn 'http://<something>' strings into hrefs
 function string_to_href(inputstring) {
     {
@@ -50,6 +51,7 @@ function ssdeepinfo(ssdeep) {
             .then(jsonresponse => json2table(jsonresponse));
     }
 }
+
 // table from json script
 function json2table(json, classes) {
     {
@@ -75,6 +77,7 @@ function json2table(json, classes) {
             '</tbody></table>';
     }
 };
+
 // infoblocks scripts
 // info0
 function katheclickleft(ssdeep) {
@@ -83,6 +86,7 @@ function katheclickleft(ssdeep) {
             .catch(error => console.error(error));
     }
 };
+
 // info1
 function katheclickright(ssdeep) {
     {
@@ -90,6 +94,7 @@ function katheclickright(ssdeep) {
             .catch(error => console.error(error));
     }
 };
+
 function getsetinfo(setinfodata) {
     {
         document.getElementById('setinfo').innerHTML =
@@ -165,4 +170,3 @@ fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
                 })
         }
     }).catch(err => console.log(err));
-    

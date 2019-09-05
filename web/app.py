@@ -496,8 +496,6 @@ def get_cached_graph(rdb, cachename):
     # def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
 
 # web service routes begin here
-
-
 @route('/')
 def hello():
     """ Welcome message, redirects to the main gui """

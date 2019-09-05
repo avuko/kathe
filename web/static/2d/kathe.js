@@ -143,7 +143,7 @@ fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
                 .nodeColor(d => d.color)
                 .nodeLabel(d => d.inputname)
                 .linkLabel(d => d.ssdeepcompare)
-                .linkHoverPrecision('1')
+                .linkHoverPrecision(1)
                 .linkWidth('value')
                 .graphData(myData)
                 .onNodeClick(node => {
@@ -155,6 +155,7 @@ fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
                                 Graph.zoom(8, 2000);
                             }
                         }
+                        
                     }
                 })
                 .onNodeRightClick(node => {

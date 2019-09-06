@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import redis
+import defaults
 import sys
 try:
     REDISDB = sys.argv[1]
@@ -8,7 +9,7 @@ except IndexError:
     # REDISDB = 13
     print('give a redis db number to flush')
     exit()
-rdb = redis.StrictRedis(host='localhost', db=REDISDB, decode_responses=True)
+rdb = redis.StrictRedis(password=defaults.REDIS_PASS, host='localhost', db=REDISDB, decode_responses=True)
 
 cachemembers = rdb.smembers('cachecontrol')
 for cache in cachemembers:

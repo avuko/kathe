@@ -21,6 +21,7 @@ DATA_SOURCES = defaults.DATA_SOURCES
 KATHE_HOST = defaults.KATHE_HOST
 KATHE_PORT = defaults.KATHE_PORT
 REDIS_HOST = defaults.REDIS_HOST
+REDIS_PASS = defaults.REDIS_PASS
 SORTED_SET_LIMIT = defaults.SORTED_SET_LIMIT
 
 try:
@@ -30,7 +31,7 @@ except IndexError:
 
 logging.info('Kathe frontend started using database #{}'.format(REDIS_DB))
 
-plugin = redis.RedisPlugin(host=REDIS_HOST, db=REDIS_DB, decode_responses=True)
+plugin = redis.RedisPlugin(host=REDIS_HOST, db=REDIS_DB, password=REDIS_PASS, decode_responses=True)
 install(plugin)
 
 base_path = os.path.abspath(os.path.dirname(__file__))
@@ -269,7 +270,7 @@ def return_search_results(rdb, cachename, allssdeepnodes,
                          "linkcount": '{}'.format(len(allssdeeplinks)),
                          "sample": '{}'.format(sampled).lower()}
 
-        rv = {'info': selectioninfo,
+        rv = {'_info': selectioninfo,
               'nodes': list(allssdeepnodes),
               'links': list(allssdeeplinks),
               'contexts': list(allssdeepcontexts)
@@ -374,6 +375,7 @@ def get_graph(rdb, contexts, cachename):
     return graph[0], graph[1], graph[2]
 
 
+# TODO: split this function into more maintainable parts
 def build_graph(rdb, contexts, cachename):
     """
     Builds a JSON graph.
@@ -409,7 +411,7 @@ def build_graph(rdb, contexts, cachename):
         fullcontextlist = ('|').join(context)
         groupid = rdb.zrank(allcontexts, contexts[0])
         newnode = {'id': rdb.zrank(cachename, ssdeep),
-                   'inputname': return_inputname,
+                   'inputname': f'{contexts[0]} | {return_inputname}' ,
                    'sha256': return_sha256,
                    'ssdeep': f'{ssdeep}',
                    'main_context': contexts[0],
@@ -429,9 +431,10 @@ def build_graph(rdb, contexts, cachename):
 
         allssdeepcontexts = contexts
         for context in contexts:
-            print(context)
-            groupid = rdb.zrank(allcontexts, context)
-            context = {context: {"color": aphash_color(groupid), "groupid": groupid}}
+            # print(context)
+            # groupid = rdb.zrank(allcontexts, context)
+            # we won't be using the colors, but we want a count
+            context = {context: {}}
             allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
                                                                     cachename,
                                                                     'contexts',
@@ -456,14 +459,12 @@ def build_graph(rdb, contexts, cachename):
                                                                     newlink,
                                                                     'add')
 
-    allssdeepnodes = list([ast.literal_eval(x)
-                           for x in list(rdb.smembers(allssdeepnodes))])
-    allssdeeplinks = list([ast.literal_eval(x)
-                           for x in list(rdb.smembers(allssdeeplinks))])
-    allssdeepcontexts = list(rdb.zrangebyscore(allssdeepcontexts,
-                                               min=0, max="+inf",
-                                               withscores=True))
-    allssdeepcontexts = list(kathe.zrange_to_json(allssdeepcontexts))
+    allssdeepnodes = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepnodes))])
+    allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
+    allssdeepcontexts = list(kathe.zrange_to_json(rdb.zrangebyscore(allssdeepcontexts,
+                                                  min=0, max="+inf",
+                                                  withscores=True)))
+
     return allssdeepnodes, allssdeeplinks, allssdeepcontexts
 
 
@@ -495,9 +496,8 @@ def get_cached_graph(rdb, cachename):
     # reminder, cache function (accepts 'add' and 'delete'):
     # def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
 
+
 # web service routes begin here
-
-
 @route('/')
 def hello():
     """ Welcome message, redirects to the main gui """

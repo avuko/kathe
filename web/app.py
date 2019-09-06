@@ -270,7 +270,7 @@ def return_search_results(rdb, cachename, allssdeepnodes,
                          "linkcount": '{}'.format(len(allssdeeplinks)),
                          "sample": '{}'.format(sampled).lower()}
 
-        rv = {'info': selectioninfo,
+        rv = {'_info': selectioninfo,
               'nodes': list(allssdeepnodes),
               'links': list(allssdeeplinks),
               'contexts': list(allssdeepcontexts)
@@ -411,7 +411,7 @@ def build_graph(rdb, contexts, cachename):
         fullcontextlist = ('|').join(context)
         groupid = rdb.zrank(allcontexts, contexts[0])
         newnode = {'id': rdb.zrank(cachename, ssdeep),
-                   'inputname': return_inputname,
+                   'inputname': f'{contexts[0]} | {return_inputname}' ,
                    'sha256': return_sha256,
                    'ssdeep': f'{ssdeep}',
                    'main_context': contexts[0],
@@ -431,9 +431,10 @@ def build_graph(rdb, contexts, cachename):
 
         allssdeepcontexts = contexts
         for context in contexts:
-            print(context)
-            groupid = rdb.zrank(allcontexts, context)
-            context = {context: {"color": aphash_color(groupid), "groupid": groupid}}
+            # print(context)
+            # groupid = rdb.zrank(allcontexts, context)
+            # we won't be using the colors, but we want a count
+            context = {context: {}}
             allssdeepcontexts, allssdeepcontextcount = cache_action(rdb,
                                                                     cachename,
                                                                     'contexts',
@@ -461,8 +462,8 @@ def build_graph(rdb, contexts, cachename):
     allssdeepnodes = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepnodes))])
     allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
     allssdeepcontexts = list(kathe.zrange_to_json(rdb.zrangebyscore(allssdeepcontexts,
-                                               min=0, max="+inf",
-                                               withscores=True)))
+                                                  min=0, max="+inf",
+                                                  withscores=True)))
 
     return allssdeepnodes, allssdeeplinks, allssdeepcontexts
 
@@ -494,6 +495,7 @@ def get_cached_graph(rdb, cachename):
 
     # reminder, cache function (accepts 'add' and 'delete'):
     # def cache_action(rdb, cachename, cachetype=None, info=None, action=None):
+
 
 # web service routes begin here
 @route('/')

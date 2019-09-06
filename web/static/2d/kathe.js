@@ -107,6 +107,29 @@ function getsetinfo(setinfodata) {
     }
 };
 
+function contextselect(contextslist) {
+
+let dropdown = document.getElementById('contextselect');
+dropdown.length = 0;
+
+let defaultOption = document.createElement('option');
+defaultOption.text = 'select a context';
+defaultOption.value = '';
+defaultOption.disabled = true;
+
+dropdown.add(defaultOption);
+dropdown.selectedIndex = 0;
+
+        let option;
+
+    	for (let i = 0; i < contextslist.length; i++) {
+          option = document.createElement('option');
+      	  option.text = contextslist[i][0] + ' (' + contextslist[i][1].count + ')'  ;
+      	  option.value = contextslist[i][0] ;
+      	  dropdown.add(option);
+    	}
+};
+
 var graphDiv = document.getElementById("graph");
 // we need to grab these to set them hard, otherwise the graph is window.height
 // var graphwidth = window.innerWidth;
@@ -132,7 +155,9 @@ fetch("/search/?search=" + unescaped_searchvalue, { cache: "no-store" })
     .then((out) => {
         {
             var myData = out;
-            var setinfo = JSON.parse(JSON.stringify(myData.info));
+            var setinfo = JSON.parse(JSON.stringify(myData._info));
+	    var contextinfo = JSON.parse(JSON.stringify(myData.contexts));
+	    contextselect(contextinfo);
             getsetinfo(setinfo);
             const elem = document.getElementById('graph');
             const Graph = ForceGraph({ alpha: true })

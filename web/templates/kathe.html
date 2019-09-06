@@ -15,7 +15,7 @@
 
       <div class="navbar bg-light">
 
-          <form action="/kathe/" method="get" class="form-inline col-md-5">
+          <form action="/kathe/" method="get" class="form-inline col-md-6">
               <input type="text" class="form-control col-sm-6" name="search" id="search" value="{{querystring}}"
                 placeholder="Please enter a ssdeep|sha256|context string" onBlur="this.value=searchparam" />
               <label class="text-muted col-sm-6"> | 
@@ -31,13 +31,6 @@
             <label for="contextform" class="text-muted col-sm-6">Contexts in this graph:</label>
             <select name="search" id="contextselect" class="form-control col-sm-6" form="contextform"
               onclick='this.form.submit()'>
-              <option value="" disabled selected>Select a context</option>
-              <!-- XXX we'll build the context dropdown here -->
-              <option>win.emotet</option>
-              <option>win.dorshel</option>
-              <option>win.isfb</option>
-              <option>win.dreambot</option>
-              <option>win.doesnotexist</option>
             </select>
           </form>
 

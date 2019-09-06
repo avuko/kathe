@@ -46,5 +46,4 @@ services:
     network_mode: host
 
 volumes:
-  redis-data: 
-
+  redis-data:

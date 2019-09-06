@@ -6,6 +6,10 @@
 
 From this git directory:
 
+ - change the password `redis` in `./conf/redis.conf`
+
+ - set the same password in `web/defaults.py` 
+
  - `docker build . -t kathe:latest`
 
  - `docker save -o kathe.img kathe`

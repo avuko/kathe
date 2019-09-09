@@ -1,6 +1,6 @@
-version: '3.6' 
+version: '3.6'
 
-services:  
+services:
 
   nginx-proxy:
     restart: always
@@ -14,7 +14,7 @@ services:
       - ./conf/cert/:/etc/nginx/conf.d/
     network_mode: host
     command: [nginx-debug, '-g', 'daemon off;']
-    depends_on: 
+    depends_on:
       - kathe
 
   kathe:

@@ -61,10 +61,10 @@ def clean_name(filename):
 info = {}
 
 
-proxies = {"http": 'http://127.0.0.1:8080',
-           "https": 'http://127.0.0.1:8080'
-           }
-# proxies = {}
+# proxies = {"http": 'http://127.0.0.1:8080',
+#           "https": 'http://127.0.0.1:8080'
+#           }
+proxies = {}
 
 def main():
     try:

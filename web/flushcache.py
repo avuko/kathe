@@ -11,6 +11,10 @@ except IndexError:
     exit()
 rdb = redis.StrictRedis(password=defaults.REDIS_PASS, host='localhost', db=REDISDB, decode_responses=True)
 
+# clear None "Cache"
+rdb.delete('None')
+
+# clear other caches
 cachemembers = rdb.smembers('cachecontrol')
 for cache in cachemembers:
     print(cache)

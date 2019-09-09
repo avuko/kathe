@@ -2,7 +2,7 @@
 import os
 import unicodedata
 from datetime import datetime
-kathe_rest_endpoint = 'http://127.0.0.1:8000/add'
+
 
 def timestamp():
     ts = int(datetime.now().strftime("%s") + str(datetime.now().microsecond))
@@ -61,6 +61,11 @@ def clean_name(filename):
 info = {}
 
 
+proxies = {"http": 'http://127.0.0.1:8080',
+           "https": 'http://127.0.0.1:8080'
+           }
+# proxies = {}
+
 def main():
     try:
         import requests
@@ -71,14 +76,15 @@ def main():
     except ImportError:
         exit('error importing secrets')
 
+    kathe_add_endpoint = secrets.kathe_add_endpoint
     headers = {'User-Agent': 'Falcon Sandbox',
                'api-key': secrets.haapikey}
-    # response = requests.get(haurl + hafeed, headers=headers)
+    response = requests.get(haurl + hafeed, headers=headers)
     # for now we test with a local file
-    import json
-    with open('ha.json') as f:
-        response = json.load(f)
-    # response = response.json()
+    # import json
+    # with open('ha.json') as f:
+    #    response = json.load(f)
+    response = response.json()
     response = response['data']
     for job in response:
         try:
@@ -117,7 +123,7 @@ def main():
             info['inputname'] = job_name
             payload = {'info': [info]}
             print(payload)
-            postdata = requests.post(kathe_rest_endpoint, json=payload)
+            postdata = requests.post(kathe_add_endpoint, json=payload, proxies=proxies)
             print(postdata.headers, postdata.status_code)
         except KeyError:
             pass

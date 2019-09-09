@@ -38,11 +38,12 @@ inputsha256 = None
 # set the DB number and host to the default value
 REDIS_DB = defaults.REDIS_DB
 REDIS_HOST = defaults.REDIS_HOST
+REDIS_PASS = defaults.REDIS_PASS
 
 # Connect to redis.
 # Also, convert all responses to strings, not bytes
-r = redis.StrictRedis(REDIS_HOST, 6379, db=REDIS_DB, charset="utf-8",
-                      decode_responses=True)
+r = redis.StrictRedis(REDIS_HOST, 6379, db=REDIS_DB, password=REDIS_PASS,
+                      charset="utf-8", decode_responses=True)
 
 
 def timestamp():

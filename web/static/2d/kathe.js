@@ -20,7 +20,7 @@ function string_to_href(inputstring) {
                 }
                 else {
                     {
-                        returnstring += (splstr + '<br />')
+                        returnstring += (splstr + ' ')
                     }
                 }
             }

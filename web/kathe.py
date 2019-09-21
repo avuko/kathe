@@ -47,7 +47,7 @@ r = redis.StrictRedis(REDIS_HOST, 6379, db=REDIS_DB, password=REDIS_PASS,
 
 
 def timestamp():
-    ts = int(datetime.now().strftime("%s") + str(datetime.now().microsecond))
+    ts = int(datetime.now().strftime("%s") + str(datetime.now().microsecond).zfill(6))
     return ts
 
 
@@ -202,8 +202,11 @@ def add_info(inputname, inputsha256, inputssdeep, inputcontext):
                                   inputssdeep, inputname, inputcontext))
     # timestamp is used for caching of query results. It is updated after
     # every addition so it never goes stale.
+    # keep a log of timestamps
+    r.sadd("timestamplog", r.get("timestamp"))
     logger.debug(timestamp())
     r.set("timestamp", timestamp())
+
     logger.debug(r.get("timestamp"))
 
 

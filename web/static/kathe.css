@@ -6,7 +6,8 @@ html,body {
 }
 
 .overflow-auto {
-  overflow: auto;
+  overflow-y: visible;
+  overflow-x: visible;
 }
 
 .overflow-hidden {

@@ -10,6 +10,7 @@ import os
 import sys
 import unicodedata
 import secrets
+import requests
 try:
     import redis
 except ImportError:
@@ -20,11 +21,11 @@ try:
 except ImportError:
     """
     if you get errors during the installation process, install these:
-    sudo apt-get install python3 python-dev python3-dev build-essential libssl-dev 
+    sudo apt-get install python3 python-dev python3-dev build-essential libssl-dev
     libffi-dev libxml2-dev libxslt1-dev zlib1g-dev python-pip libfuzzy-dev
     """
-    print('pip install ssdeep') 
-    #print('apt install python3-ssdeep')
+    print('pip install ssdeep')
+    # print('apt install python3-ssdeep')
     exit(1)
 
 # XXX clean up order of functions etc, do __main__ to prevent cli stuff
@@ -33,7 +34,7 @@ parser = OptionParser()
 parser.add_option("-c", "--context", dest="context", action='store',
                   type='string',
                   help=("context (comma separated)."
-                        "E.g.: 'win.isfb,malpedia,2018-01-01' "
+                        "E.g.: 'win.isfb,malpedia,2018,2018-01,2018-01-01' "
                         "Make sure the most important context "
                         "(in this example the malware family) "
                         "is the first one in the list."),
@@ -43,22 +44,24 @@ parser.add_option("-r", "--redisdb", dest="redisdb", action="store",
                   help='select the redisdb #. to store in. defaults to 13',
                   metavar="13")
 parser.add_option("-f", "--file", dest="filename", action='store',
-                  type='string',  help="analyse a file.", metavar="FILE")
+                  type='string', help="analyse a file.", metavar="FILE")
 parser.add_option("-i", "--csv", dest="csvfile", action='store',
-                  type='string',  help="import a csv", metavar="FILE")
+                  type='string', help="import a csv", metavar="FILE")
 parser.add_option("-j", "--json", dest="jason", action='store', type='string',
-                  help="""use json formatted strings (per line) as source:
-                  ["ssdeephash","name","sha256"]
-                  cat json|while read line; do ./kathe.py -j "${line}";done""",
+                  help=("use json formatted strings (per line) as source:"
+                        """ ["ssdeephash","name","sha256"] """
+                        """like: cat json|while read line;"""
+                        """do ./kathe.py -c context -j "${line}";done"""),
                   metavar="JSON input")
-parser.add_option("-v", "--verbose", action="store_true", help="print results")
+parser.add_option("-a", "--add", action="store_true",
+                  help=f"use REST interface: {secrets.kathe_add_endpoint}")
 
 (options, args) = parser.parse_args()
 
 
 # Ugly way to check you are actually giving us something to work with.
 if options.filename is None and options.jason is None\
- and options.csvfile is None or options.context is None:
+   and options.csvfile is None or options.context is None:
     print(parser.error("Missing options, see " + sys.argv[0] + " -h"))
 
 
@@ -66,26 +69,42 @@ if options.filename is None and options.jason is None\
 inputname = None
 inputssdeep = None
 inputsha256 = None
-if options.context:
+if options.context and len(options.context) is not 0:
     inputcontext = options.context
 else:
+    exit('Setting a context is required')
     inputcontext = 'None'
 
 # By default, store in Redis db 13.
-if options.redisdb:
-    redisdbnr = options.redisdb
-else:
-    redisdbnr = 13
+if options.redisdb and options.add:
+    exit("Choose either direct redis storing, or using a REST add interface")
 
-# Connect to redis.
-# Also, convert all responses to strings, not bytes
-r = redis.StrictRedis('localhost', 6379, db=redisdbnr, charset="utf-8",
-                      decode_responses=True)
+if options.redisdb and options.redisdb:
+    if int(options.redisdb) < 17 and int(options.redisdb) > 0:
+        redisdbnr = options.redisdb
+        try:
+            redis_password = secrets.redis_password
+        except KeyError as e:
+            print(e)
+            redis_password = ''
+        # Connect to redis.
+        # Also, convert all responses to strings, not bytes
+        r = redis.StrictRedis('localhost', 6379, db=redisdbnr, password=redis_password, charset="utf-8",
+                              decode_responses=True)
+        try:
+            r.info()
+        except redis.exceptions.ResponseError as e:
+            exit(e)
+    else:
+        exit("Give us a real redis db number to work with")
+
+
 # connect to neo4j.
 # graph = Graph(secrets.neo4jurl, auth=(secrets.neo4juser, secrets.neo4jpass))
 
+
 def timestamp():
-    ts = int(datetime.now().strftime("%s")+str(datetime.now().microsecond))
+    ts = int(datetime.now().strftime("%s") + str(datetime.now().microsecond).zfill(6))
     return ts
 
 
@@ -137,7 +156,7 @@ def file_sha256(inputname):
     so memory isn't swamped when dealing with large files."""
     h = hashlib.sha256()
     with open(inputname, 'rb', buffering=0) as f:
-        for b in iter(lambda: f.read(128*1024), b''):
+        for b in iter(lambda: f.read(128 * 1024), b''):
             h.update(b)
     return h.hexdigest()
 
@@ -148,7 +167,7 @@ def file_ssdeep(inputname):
     so memory isn't swamped when dealing with large files."""
     h = ssdeep.Hash()
     with open(inputname, 'rb', buffering=0) as f:
-        for b in iter(lambda: f.read(128*1024), b''):
+        for b in iter(lambda: f.read(128 * 1024), b''):
             h.update(b)
     return h.digest()
 
@@ -163,7 +182,7 @@ def get_all_7_char_rolling_window(bs, h):
     of the ssdeep string for both block sizes, with the block size prepended.
     Ssdeep only does a compare if at least 7 characters match between strings.
     These are the keys which hold the sibling values."""
-    return set((str(bs) + ":" + h[i:i+7]) for i in range(len(h) - 6))
+    return set((str(bs) + ":" + h[i:i + 7]) for i in range(len(h) - 6))
 
 
 def preprocess_ssdeep(h):
@@ -216,12 +235,12 @@ def add_info(inputname, inputsha256, inputssdeep, inputcontext):
                                                    inputcontext))
     r.sadd('info:ssdeep:{}'.format(inputssdeep),
            'sha256:{}:context:{}:inputname:{}'.format(inputsha256,
-                                                     inputcontext,
-                                                     inputname))
+                                                      inputcontext,
+                                                      inputname))
     r.sadd('info:sha256:{}'.format(inputsha256),
            'ssdeep:{}:context:{}:inputname:{}'.format(inputssdeep,
-                                                     inputcontext,
-                                                     inputname))
+                                                      inputcontext,
+                                                      inputname))
     r.sadd("hashes:ssdeep", '{}'.format(inputssdeep))
     r.sadd("names:inputname", '{}'.format(inputname))
     # pull all most significant contexts from an ssdeep and, if they are
@@ -285,9 +304,9 @@ def return_results(inputname, inputsha256, inputssdeep, inputcontext):
     info['ssdeep'] = inputssdeep
     info['context'] = inputcontext
     info['other_inputnames'] = [inputnames.split(':')[-1]
-                               for inputnames in
-                               r.smembers('info:sha256:{}'.format(inputsha256))
-                               if inputnames.split(':')[-1] not in inputname]
+                                for inputnames in
+                                r.smembers('info:sha256:{}'.format(inputsha256))
+                                if inputnames.split(':')[-1] not in inputname]
     info['siblings'] = list(r.zrangebyscore(inputssdeep, min=0,
                             max='+inf', withscores=True))
     return(info)
@@ -304,41 +323,57 @@ def new_hash(inputsha256):
 
 
 def add_ssdeep_to_db(inputname, inputsha256, inputssdeep, inputcontext):
-    # If the file is new, add all information
-    if new_hash(inputsha256):
-        inputname = clean_name(inputname)
-        r.sadd("hashes:sha256", '{}'.format(inputsha256))
-        add_info(inputname, inputsha256, inputssdeep, inputcontext)
-        ssdeep_compare = preprocess_ssdeep(inputssdeep)
-        for rolling_window_ssdeep in ssdeep_compare:
-            ssdeep_sets = get_ssdeep_sets(rolling_window_ssdeep, inputssdeep)
-            add_ssdeep_to_rolling_window(rolling_window_ssdeep, inputssdeep)
-            for sibling_ssdeep in ssdeep_sets:
-                # Add sibling_ssdeep to the inputssdeep
-                # XXX maybe add zscore check to optimise away the compare
-                st = '{},{},{}'
-                r.zadd(inputssdeep,
-                       float(ssdeep.compare(sibling_ssdeep, inputssdeep)),
-                       st.format(sibling_ssdeep,
-                                 get_allsha256_for_ssdeep(sibling_ssdeep),
-                                 get_allcontext_for_ssdeep(sibling_ssdeep)))
-                # Add inputssdeep to sibling_ssdeep
-                r.zadd(sibling_ssdeep,
-                       float(ssdeep.compare(inputssdeep, sibling_ssdeep)),
-                       st.format(inputssdeep,
-                                 inputsha256,
-                                 inputcontext.replace(',', '|')))
+    """ This function either adds the data directly to a redis instance,
+    or, uses the REST interface to fill a remote instance.
+    All the logic to store directly is contained in this function. If a sha256
+    is already known, just store the extra info (saves a lot of effort).
+    """
 
-    # or else, add only the new info
+    # Don't bother with a local redis instance
+    if options.add:
+        proxies = {}
+        kathe_add_endpoint = secrets.kathe_add_endpoint
+        payload = {'info': [{'contexts': inputcontext.split(','),
+                             'inputname': inputname,
+                             'sha256': inputsha256,
+                             'ssdeep': inputssdeep}]}
+        print(payload)
+        postdata = requests.post(kathe_add_endpoint, json=payload, proxies=proxies)
+        print(postdata.headers, postdata.status_code)
+
+    # Here we start directly talking to redis
+    # If the file is new, add all information
     else:
-        inputname = clean_name(inputname)
-        add_info(inputname, inputsha256, inputssdeep, inputcontext)
+        if new_hash(inputsha256):
+            inputname = clean_name(inputname)
+            r.sadd("hashes:sha256", '{}'.format(inputsha256))
+            add_info(inputname, inputsha256, inputssdeep, inputcontext)
+            ssdeep_compare = preprocess_ssdeep(inputssdeep)
+            for rolling_window_ssdeep in ssdeep_compare:
+                ssdeep_sets = get_ssdeep_sets(rolling_window_ssdeep, inputssdeep)
+                add_ssdeep_to_rolling_window(rolling_window_ssdeep, inputssdeep)
+                for sibling_ssdeep in ssdeep_sets:
+                    # Add sibling_ssdeep to the inputssdeep
+                    # XXX maybe add zscore check to optimise away the compare
+                    st = '{},{},{}'
+                    r.zadd(inputssdeep,
+                           float(ssdeep.compare(sibling_ssdeep, inputssdeep)),
+                           st.format(sibling_ssdeep,
+                                     get_allsha256_for_ssdeep(sibling_ssdeep),
+                                     get_allcontext_for_ssdeep(sibling_ssdeep)))
+                    # Add inputssdeep to sibling_ssdeep
+                    r.zadd(sibling_ssdeep,
+                           float(ssdeep.compare(inputssdeep, sibling_ssdeep)),
+                           st.format(inputssdeep,
+                                     inputsha256,
+                                     inputcontext.replace(',', '|')))
+
+        # or else, add only the new info
+        else:
+            inputname = clean_name(inputname)
+            add_info(inputname, inputsha256, inputssdeep, inputcontext)
 
     # return the result in json format if verbose is set
-    if options.verbose:
-        print(json.dumps(return_results(inputname, inputsha256,
-                                        inputssdeep, inputcontext),
-              indent=4, sort_keys=True))
 
 
 # def add_ssdeep_to_graph(inputname, inputsha256, inputssdeep, inputcontext):
@@ -381,6 +416,6 @@ elif options.csvfile:
                         csvcontext.append(clicontext)
                 inputcontext = ','.join(csvcontext)
                 add_ssdeep_to_db(clean_name(row['inputname']),
-                                row['sha256'], row['ssdeep'], inputcontext)
+                                 row['sha256'], row['ssdeep'], inputcontext)
                 print(clean_name(row['inputname']),
-                    row['sha256'], row['ssdeep'], inputcontext)
+                      row['sha256'], row['ssdeep'], inputcontext)

@@ -13,7 +13,7 @@ ENV LANG=C.UTF-8
 
 ENTRYPOINT ["pipenv"]
 
-ADD kathe.py /
+ADD kathe-cli.py /
 ADD ./web/app.py /web/
 ADD ./web/kathe.py /web/
 ADD ./web/defaults.py /web/

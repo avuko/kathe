@@ -20,7 +20,6 @@ services:
   kathe:
     restart: always
     container_name: kathe_app
-    restart: always
     image: kathe:latest
     depends_on:
       - redis
@@ -37,7 +36,6 @@ services:
   redis:
     restart: always
     container_name: kathe_redis
-    restart: always
     image: redis:latest
     command: redis-server /etc/redis.conf
     volumes:

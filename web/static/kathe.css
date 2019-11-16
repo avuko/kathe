@@ -5,13 +5,18 @@ html,body {
   overflow-y: hidden;
 }
 
-.overflow-auto {
-  overflow-y: visible;
-  overflow-x: visible;
+.overflow-y {
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
 }
-
+*/
 .overflow-hidden {
   overflow: hidden;
+}
+
+ul {
+  list-style: none; /* Remove default bullets */
 }
 
 /* Dark mode toggles: */

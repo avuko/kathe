@@ -109,31 +109,31 @@ function getsetinfo(setinfodata) {
 
 function contextselect(contextslist) {
 
-let dropdown = document.getElementById('contextselect');
-dropdown.length = 0;
-
-let defaultOption = document.createElement('option');
-defaultOption.text = 'select a context';
-defaultOption.value = '';
-defaultOption.disabled = true;
-
-dropdown.add(defaultOption);
-dropdown.selectedIndex = 0;
-
-        let option;
-
-    	for (let i = 0; i < contextslist.length; i++) {
-          option = document.createElement('option');
-      	  option.text = contextslist[i][0] + ' (' + contextslist[i][1].count + ')'  ;
-      	  option.value = contextslist[i][0] ;
-      	  dropdown.add(option);
+var ctxlist = document.getElementById('contextlist');
+      if (contextslist.length > 0) {
+    	for (var i = 0; i < contextslist.length; i++) {
+          var listItem = document.createElement('li');
+          var listBullet = document.createElement('span');
+          var listHref = document.createElement('a');
+          var attspan = document.createAttribute("style");
+          var atthref = document.createAttribute("href");
+          attspan.value = 'color: ' + contextslist[i][2].color ;
+          atthref.value = '/kathe/?search=' + contextslist[i][0];
+          listBullet.setAttributeNode(attspan);
+          listBullet.textContent = '⬤ ';
+          listHref.setAttributeNode(atthref);
+      	  listHref.textContent = contextslist[i][0] + ' (' + contextslist[i][1].count + ')';
+          listItem.appendChild(listBullet);
+          listItem.appendChild(listHref);
+      	  ctxlist.appendChild(listItem);
     	}
+}
 };
 
 var graphDiv = document.getElementById("graph");
 // we need to grab these to set them hard, otherwise the graph is window.height
 // var graphwidth = window.innerWidth;
-var divheight = document.getElementById("graphrow");
+var divheight = document.getElementById("graphcol");
 graphheight = (divheight.clientHeight - 30);
 graphwidth = (divheight.clientWidth - 30);
 //console.log(divheight);

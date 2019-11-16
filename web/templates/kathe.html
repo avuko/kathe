@@ -27,12 +27,6 @@
                 </label>
           </form>
 
-          <form action="/kathe/?" method="GET" class="form-inline col-md-5" id="contextform">
-            <label for="contextform" class="text-muted col-sm-6">Contexts in this graph:</label>
-            <select name="search" id="contextselect" class="form-control col-sm-6" form="contextform"
-              onclick='this.form.submit()'>
-            </select>
-          </form>
 
           <div class="custom-control custom-switch">
             <input type="checkbox" class="custom-control-input" id="darkSwitch">
@@ -42,9 +36,13 @@
       </div>
     
       <div class="row h-75" >
-        <div class="col-md-12" id="graphrow">
+        <div class="col-md-10" id="graphcol">
           <div id="graph" class="">
           </div>
+        </div>
+        <div class="col-md-2 overflow-y" id="listcol">
+          <ul id="contextlist">
+          </ul>
         </div>
       </div>
       
@@ -52,7 +50,7 @@
     <!-- end container -->
     
 
-    <footer class="h-25 bg-light overflow-auto">
+    <footer class="h-25 bg-light">
       <!-- row search form and info -->
       <div class="row mx-5 h-100">
         <!-- col search form and info -->

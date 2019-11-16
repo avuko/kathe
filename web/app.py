@@ -51,7 +51,9 @@ def aphash_color(gid):
             hash = hash ^ ((hash << 7) ^ ord(c) * (hash >> 3))
     else:
         hash = hash ^ (~ ((hash << 11) + (ord(c) ^ (hash >> 5))))
-    return f"#{hex(hash & 0xFFFFFF)[2:]}"
+    # we need padding
+    # return f"#{hex(hash & 0xFFFFFF)[2:]}"
+    return f"#{(hash & 0xFFFFFF):06x}"
 
 
 def roundrobin(*iterables):
@@ -464,7 +466,15 @@ def build_graph(rdb, contexts, cachename):
     allssdeepcontexts = list(kathe.zrange_to_json(rdb.zrangebyscore(allssdeepcontexts,
                                                   min=0, max="+inf",
                                                   withscores=True)))
-
+    # This feels like a dirty hack
+    coloredcontexts = []
+    for context in allssdeepcontexts:
+        groupid = rdb.zrank(allcontexts, context[0])
+        context.append({"color": aphash_color(groupid)})
+        coloredcontexts.append(context)
+    # and overload
+    allssdeepcontexts = coloredcontexts
+    print(allssdeepcontexts)
     return allssdeepnodes, allssdeeplinks, allssdeepcontexts
 
 

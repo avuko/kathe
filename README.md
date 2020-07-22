@@ -3,32 +3,29 @@
 ## Building kathe
 
  - Get `docker` and `docker-compose`
+ - You will probably need to log out and back in again the first time (this is from experience)
 
 From this git directory:
 
  - change the password `redis` in `./conf/redis.conf`
-
- - set the same password in `web/defaults.py` 
-
+ - set the same password in `web/defaults.py`
+ - If you have a `secrets.py`, don't forget to change the password there too 
  - `docker build . -t kathe:latest`
-
  - `docker save -o kathe.img kathe`
-
  - `docker image load -i kathe.img`
-
  - `docker-compose up -d`
 
 Bring it back down with:
 
 - `docker-compose down`
 
-### `kathe.py`
+### `kathe-cli.py`
 
-Without data everything is useless. I've created `kathe.py` to load data sets in different formats into *kathe*. With the docker configuration as we currently have it, the data (at rest) ends up in `/var/lib/docker/volumes/kathe_redis-data/_data/` on the machine running the docker containers. When you rebuild a docker image, you should not lose previously loaded data.
+Without data everything is useless. I've created `kathe-cli.py` to load data sets in different formats into *kathe*. With the docker configuration as we currently have it, the data (at rest) ends up (after a background sync) in `/var/lib/docker/volumes/kathe_redis-data/_data/` on the machine running the docker containers. When you rebuild a docker image, you should not lose previously loaded data.
 
-`kathe.py` stores ssdeep hashes in Redis in such a way that correlation (ssdeep compares) between all relevant hashes is possible. Because the comparison is done during storage, retrieving all similar ssdeep hashes later is cheap.
+`kathe-cli.py` stores ssdeep hashes in Redis in such a way that correlation (ssdeep compares) between all relevant hashes is possible. Because the comparison is done during storage, retrieving all similar ssdeep hashes later is cheap.
 
-`kathe.py` also stores cross-linked info to redis: any of inputname, ssdeep, sha256 and context has pointers to the other info available.
+`kathe-cli.py` also stores cross-linked info to redis: any of inputname, ssdeep, sha256 and context has pointers to the other info available.
 
 Additionally, unique lists of sha256 hashes, ssdeep hashes, inputnames and contexts are created. These lists function as "Indexes" which can help you access all data. The names:context list is stored as a sorted set (`zset`). The score is a counter of occurrence of a context value. Besides the obvious benefit of knowing the size of each stored context group, the `zset` also serves as a numbered dictionary in `app.py`.
 
@@ -48,18 +45,18 @@ info:ssdeep:<ssdeep>
 info:context:<context>
 ```
 
- Please be aware that `kathe.py` removes unwanted characters like non-UTF8 and control characters from inputnames and contexts. In addition the following characters (python list) are also removed:
+ Please be aware that `kathe-cli.py` removes unwanted characters like non-UTF8 and control characters from inputnames and contexts. In addition the following characters (python list) are also removed:
 
 ```python
 [':', '\\', '"', '\'', '|', ' ', '/']
 
 ```
 
-The real magic of kathe.py is hidden behind the sorted sets with the name `<ssdeep hash>`. The  score associated with every value in the `zset`, holds the result of a `ssdeep_compare` between the "parent" ssdeep and any partially similar ssdeep hashes I've named "siblings".
+The real magic of kathe-cli.py is hidden behind the sorted sets with the name `<ssdeep hash>`. The  score associated with every value in the `zset`, holds the result of a `ssdeep_compare` between the "parent" ssdeep and any partially similar ssdeep hashes I've named "siblings".
 
+Because of weirdness in later python-redis versions, you need to install with `pip3 install redis='<=3.*'`. This 
 
-
-### `kathe.py` workflows
+### `kathe-cli.py` workflows
 
 #### Workflow with a "json" line file
 
@@ -121,8 +118,7 @@ To get information on an inputname:
 smembers info:inputname:<input name stripped of "badchars", see above>
 ```
 
-As nearly identical inputs can potentially have the same ssdeep hash, this might return a number of (unique)
-results. Format of the response:
+As nearly identical inputs can potentially have the same ssdeep hash, this might return a number of (unique) results. Format of the response:
 
 ```bash
 smembers info:inputname:binary-147-meta.exe

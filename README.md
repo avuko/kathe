@@ -33,12 +33,12 @@ Creating kathe_nginx ... done
 
 And if you visit http://localhost:8000/kathe/, you should see something like this:
 
-![Initial View](/home/avuko/research/kathe/readme_initialview.png)
+![Initial View](readme_initialview.png)
 
 If anything goes wrong (like the "500" error code in this screen-shot), hovering over the HTTP response code will tell you what. Clicking it will take you to the page throwing the error. In this case, "`dbtimestamp`" doesn't exist yet because the datastore is empty, so there's your error.
 If you do have some data in your `kathe` system, it should look like this if your search is successful:
 
-![example with APT28 malware (source: HybridAnalysis)](/home/avuko/research/kathe/readme_initialview_200.png)
+![example with APT28 malware (source: HybridAnalysis)](readme_initialview_200.png)
 
 If you click the HTTP 200 code, it will open a new tab for you to the successful response that generated the graph. I found this sometimes comes in handy.
 

@@ -39,9 +39,7 @@ services:
     image: redis:latest
     command: redis-server /etc/redis.conf
     volumes:
-      - redis-data:/data
+      - /var/lib/docker/volumes/kathe_redis-data/_data/:/data
       - ./conf/redis.conf:/etc/redis.conf
     network_mode: host
 
-volumes:
-  redis-data:

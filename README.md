@@ -19,11 +19,34 @@ Bring it back down with:
 
 - `docker-compose down`
 
+### Basic usage
+
+If all goes well,  you should see something like:
+
+```bash
+docker-compose up -d
+Creating kathe_redis ... done
+Creating kathe_app   ... done
+Creating kathe_nginx ... done
+
+```
+
+And if you visit http://localhost:8000/kathe/, you should see something like this:
+
+![Initial View](/home/avuko/research/kathe/readme_initialview.png)
+
+If anything goes wrong (like the "500" error code in this screen-shot), hovering over the HTTP response code will tell you what. Clicking it will take you to the page throwing the error. In this case, "`dbtimestamp`" doesn't exist yet because the datastore is empty, so there's your error.
+If you do have some data in your `kathe` system, it should look like this if your search is successful:
+
+![example with APT28 malware (source: HybridAnalysis)](/home/avuko/research/kathe/readme_initialview_200.png)
+
+If you click the HTTP 200 code, it will open a new tab for you to the successful response that generated the graph. I found this sometimes comes in handy.
+
 ### `kathe-cli.py`
 
-Without data everything is useless. I've created `kathe-cli.py` to load data sets in different formats into *kathe*. With the docker configuration as we currently have it, the data (at rest) ends up (after a background sync) in `/var/lib/docker/volumes/kathe_redis-data/_data/` on the machine running the docker containers. When you rebuild a docker image, you should not lose previously loaded data.
+Without data everything is useless. I've created `kathe-cli.py` to load data sets in different formats into *kathe*. With the docker configuration as we currently have it, the data (at rest) ends up (after a background sync) in `/var/lib/docker/volumes/kathe_redis-data/_data/` on the machine running the docker containers. When you rebuild a docker image, you should not lose previously loaded data. If you want to keep this data somewhere else, be sure to change the corresponding line in the docker-compose.yml file.
 
-`kathe-cli.py` stores ssdeep hashes in Redis in such a way that correlation (ssdeep compares) between all relevant hashes is possible. Because the comparison is done during storage, retrieving all similar ssdeep hashes later is cheap.
+`kathe-cli.py` stores ssdeep hashes in Redis in such a way that correlation (ssdeep compares) between all *relevant* hashes is possible. Because the comparison is done during storage, retrieving all similar ssdeep hashes later is cheap.
 
 `kathe-cli.py` also stores cross-linked info to redis: any of inputname, ssdeep, sha256 and context has pointers to the other info available.
 
@@ -58,13 +81,18 @@ Because of weirdness in later python-redis versions, you need to install with `p
 
 ### `kathe-cli.py` workflows
 
-#### Workflow with a "json" line file
+#### Workflow with a "JSON" line file
+
+I have a file with lines containing what you could call a bunch of JSON Arrays. They look like this: 
 
 ```bash
 head -1 apt28/apt28.json 
 ["12288:25OuuqTt1WS36Lpvf9wScE1BR53LOvGV1Jww1nOXn+OCVOeXSVbHXwqdC1:25O6HVkpmSDBRBJJw0OXjCVmXw11", "12-033-1589(1).rar", "e53bd956c4ef79d54b4860e74c68e6d93a49008034afb42b092ea19344309914"]
+```
+What you can do with this, is just quick & dirty pass them through. Whether you have to use the REST interface (`-a` switch) or not depends. I'm running the script on the same system that has the dockers running, so the redis instance is directly accessible. In my experience this is quicker. 
 
-cat apt28/apt28.json | while read line; do ./kathe.py -r 1 -c apt28,zap -j "${line}" ; done
+```bash
+cat apt28/apt28.json | while read line; do ./kathe-cli.py -r 13 -c apt28,zap -j "${line}" ; done
 ```
 
 #### Workflow with files

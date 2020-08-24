@@ -58,7 +58,6 @@ parser.add_option("-a", "--add", action="store_true",
 
 (options, args) = parser.parse_args()
 
-
 # Ugly way to check you are actually giving us something to work with.
 if options.filename is None and options.jason is None\
    and options.csvfile is None or options.context is None:
@@ -69,7 +68,7 @@ if options.filename is None and options.jason is None\
 inputname = None
 inputssdeep = None
 inputsha256 = None
-if options.context and len(options.context) is not 0:
+if options.context and len(options.context) != 0:
     inputcontext = options.context
 else:
     exit('Setting a context is required')
@@ -84,6 +83,7 @@ if options.redisdb and options.redisdb:
         redisdbnr = options.redisdb
         try:
             redis_password = secrets.redis_password
+            print(redis_password)
         except KeyError as e:
             print(e)
             redis_password = ''
@@ -403,16 +403,16 @@ elif options.csvfile:
         for row in reader:
             csvcontext = []
             if row['ssdeep'] and row['sha256']:
-                if row['inputname'] is '':
+                if row['inputname'] == '':
                     row['inputname'] = row['sha256']
-                if row['context0'] is '':
+                if row['context0'] == '':
                     row['context0'] = 'unknown_type'
                 csvcontext.append(clean_context(row['context0']))
-                if row['context1'] is not '':
+                if row['context1'] != '':
                     csvcontext[0:0] = [clean_context(row['context1'])]
                 clicontexts = clean_context(options.context).split('|')
                 for clicontext in clicontexts:
-                    if clicontext is not '':
+                    if clicontext != '':
                         csvcontext.append(clicontext)
                 inputcontext = ','.join(csvcontext)
                 add_ssdeep_to_db(clean_name(row['inputname']),

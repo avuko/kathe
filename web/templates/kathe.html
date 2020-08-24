@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <link rel="stylesheet" href="/static/fira.css">
-    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css"> 
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/kathe.css">
     <link rel="stylesheet" href="/static/dark-mode.css">
   </head>
@@ -19,9 +19,8 @@
               <input type="text" class="form-control col-sm-6" name="search" id="search" value="{{querystring}}"
                 placeholder="Please enter a ssdeep|sha256|context string" onBlur="this.value=searchparam" />
               <label class="text-muted col-sm-6"> | 
-                <span id="httpcode" data-toggle="tooltip" data-placement="top"title="HTTP response code">
-                  ___
-                </span> 
+                <span id="httpcode" data-toggle="tooltip" data-placement="top" title="">
+                </span>
                 |
                 <span id="setinfo"></span>
                 </label>
@@ -34,7 +33,7 @@
           </div>
 
       </div>
-    
+
       <div class="row h-75" >
         <div class="col-md-10" id="graphcol">
           <div id="graph" class="">
@@ -45,10 +44,10 @@
           </ul>
         </div>
       </div>
-      
-      
+
+
     <!-- end container -->
-    
+
 
     <footer class="h-25 bg-light">
       <!-- row search form and info -->
@@ -74,12 +73,12 @@
       var searchvalue = decodeURIComponent("{{querystring2}}");
       var unescaped_searchvalue = "{{querystring2}}";
     </script>
-    
+
     <!-- Load scripts -->
     <script src="/static/2d/force-graph.js"></script>
     <script src="/static/2d/kathe.js"></script>
     <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script src="/static/dark-mode-switch.min.js"></script>
-    
+
   </body>
 </html>

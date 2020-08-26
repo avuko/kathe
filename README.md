@@ -10,18 +10,50 @@ From this git directory:
  - change the password `redis` in `./conf/redis.conf`
  - set the same password in `web/defaults.py`
  - If you have a `secrets.py`, don't forget to change the password there too 
- - `docker build . -t kathe:latest`
- - `docker save -o kathe.img kathe`
- - `docker image load -i kathe.img`
- - `docker-compose up -d`
+ - run `build.sh` (check what it does first, maybe you want to tweak things/do them manually)
 
 Bring it back down with:
 
 - `docker-compose down`
 
-### Basic usage
+## Basic usage
 
 If all goes well,  you should see something like:
+
+```bash
+./build.sh 
+true
+kathe_app running
+Stopping kathe_nginx ... done
+Stopping kathe_app   ... done
+Stopping kathe_redis ... done
+Removing kathe_nginx ... done
+Removing kathe_app   ... done
+Removing kathe_redis ... done
+Generating new kathe SSL cert...
+Generating a RSA private key
+................................................+++++
+..........................+++++
+writing new private key to 'conf/cert/kathekey.pem'
+-----
+Sending build context to Docker daemon    564MB
+Step 1/19 : FROM ubuntu:latest
+ ---> adafef2e596e
+
+[...]
+
+Step 19/19 : CMD ["run", "/web/app.py"]
+ ---> Using cache
+ ---> 3152d7f359c6
+Successfully built 3152d7f359c6
+Successfully tagged kathe:latest
+Creating kathe_redis ... done
+Creating kathe_app   ... done
+Creating kathe_nginx ... done
+
+```
+
+Afterwards, you can just bring things up with:
 
 ```bash
 docker-compose up -d
@@ -31,16 +63,20 @@ Creating kathe_nginx ... done
 
 ```
 
-And if you visit http://localhost:8000/kathe/, you should see something like this:
+And if you visit https://localhost/kathe/ (alternatively: http://localhost:8000/kathe), you should see something like this:
 
 ![Initial View](readme_initialview.png)
 
 If anything goes wrong (like the "500" error code in this screen-shot), hovering over the HTTP response code will tell you what. Clicking it will take you to the page throwing the error. In this case, "`dbtimestamp`" doesn't exist yet because the datastore is empty, so there's your error.
-If you do have some data in your `kathe` system, it should look like this if your search is successful:
+If you *do* have some data in your `kathe` system, it should look like this if your search is successful:
 
 ![example with APT28 malware (source: HybridAnalysis)](readme_initialview_200.png)
 
 If you click the HTTP 200 code, it will open a new tab for you to the successful response that generated the graph. I found this sometimes comes in handy.
+
+For what *kathe* is, how it works and why I bothered building it, I kindly refer you to [My slides for Bsides Cymru 2019](bsides_cymru_kathe.pdf).
+
+
 
 ### `kathe-cli.py`
 

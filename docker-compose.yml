@@ -24,7 +24,7 @@ services:
     depends_on:
       - redis
     environment:
-      - REDIS_HOST=redis
+      - REDIS_HOST=127.0.0.1
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
     ports:

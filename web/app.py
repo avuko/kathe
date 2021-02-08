@@ -461,6 +461,7 @@ def build_graph(rdb, contexts, cachename):
                                                                     newlink,
                                                                     'add')
 
+    # print('debug: ' + str(allssdeepnodes) + str(type(allssdeepnodes)))
     allssdeepnodes = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeepnodes))])
     allssdeeplinks = list([ast.literal_eval(x) for x in list(rdb.smembers(allssdeeplinks))])
     allssdeepcontexts = list(kathe.zrange_to_json(rdb.zrangebyscore(allssdeepcontexts,
@@ -469,6 +470,7 @@ def build_graph(rdb, contexts, cachename):
     # This feels like a dirty hack
     coloredcontexts = []
     for context in allssdeepcontexts:
+        # print(context[0])
         groupid = rdb.zrank(allcontexts, context[0])
         context.append({"color": aphash_color(groupid)})
         coloredcontexts.append(context)

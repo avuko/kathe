@@ -8,8 +8,11 @@ pylint = "*"
 autopep8 = "*"
 
 [packages]
-redis = "<=3.*"
-bottle-redis = "*"
+# redis = "<=3.3.11"
+redis = "2.10.4"
+# redis
+bottle-redis = "0.12.18"
+#bottle-redis
 bottle = "*"
 ssdeep = "*"
 cd = "*"

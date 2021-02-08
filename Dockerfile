@@ -11,7 +11,7 @@ RUN apt-get update \
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 
-ENTRYPOINT ["pipenv"]
+# ENTRYPOINT ["pipenv"]
 
 ADD kathe-cli.py /
 ADD ./web/app.py /web/
@@ -23,8 +23,11 @@ ADD ./web/templates /web/templates
 ADD Pipfile /
 ADD Pipfile.lock /
 
-RUN pip install pipenv
+RUN /usr/bin/python3 -m pip install --upgrade pip
+# RUN pip install pipenv
 RUN pip install ssdeep
-RUN pipenv install --skip-lock
-#CMD pipenv shell
-CMD ["run", "/web/app.py"]
+RUN pip install redis==2.10.6
+RUN pip install bottle-redis
+# RUN pipenv install --skip-lock
+# CMD pipenv shell
+CMD ["python3", "/web/app.py"]

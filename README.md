@@ -145,8 +145,18 @@ I have added  the `malpedia.py script`  used below to the repository. Although s
 
 ### Accessing lists of all sha256/inputname/ssdeep/context stored:
 
-
 #### sha256 hashes
+
+
+```bash
+docker exec -it kathe_redis bash
+
+redis-cli -n 13
+
+auth <your pass>
+save
+```
+(don't forget to run `save` after you've just loaded new things into the db)
 
 To get a list of all sha256 hashes of all stored info:
 

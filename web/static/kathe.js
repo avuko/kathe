@@ -71,7 +71,8 @@ d3.json("/search/?search=" + unescaped_searchvalue, function(error, graph) {
     .attr("stroke-width", function(d) { return 10/(100/d.value); });
 
   link.append("title")
-     .text(function(d) { return "ssdeep_compare: " + d.value; });
+     // .text(function(d) { return "ssdeep_compare: " + d.value; });
+     .text(function(d) { return "ssdeep_compare: 100"; });
   // link.append("textPath") //append a textPath to the text element
    	// .attr("xlink:href", "#wavy") //place the ID of the path here
    	// .style("text-anchor","middle") //place the text halfway on the arc
@@ -80,14 +81,14 @@ d3.json("/search/?search=" + unescaped_searchvalue, function(error, graph) {
     // .text(function(d) { return d.value; });
 
 
+  // XXX needless?
+  // link.on("mouseover", function(d){
+  //  d3.select(this).style('stroke', '#900');
+  //});
 
-  link.on("mouseover", function(d){
-    d3.select(this).style('stroke', '#900');
-  });
-
-  link.on("mouseout", function(d){
-    d3.select(this).style('stroke', '#999');
-  });
+  //link.on("mouseout", function(d){
+  //  d3.select(this).style('stroke', '#999');
+  //}); XXX END NEEDLESS
 
   var node = svg.append("g")
     .attr("class", "nodes")

@@ -1,16 +1,8 @@
 #!/usr/bin/env python3
-import sys
 import os
 import hashlib
 import shlex
 
-try:
-    import redis
-except ImportError:
-    print("module missing (see documentation): pip3 install redis")
-    exit()
-
-from optparse import OptionParser
 try:
     import ssdeep
 except ImportError:
@@ -18,6 +10,7 @@ except ImportError:
     apt install python3-ssdeep (works better from apt than pip3)""")
     exit()
 from collections import defaultdict
+
 
 # buffered file reading sha256
 def file_sha256(filename):
@@ -29,6 +22,7 @@ def file_sha256(filename):
             h.update(b)
     return h.hexdigest()
 
+
 # buffered file reading ssdeep
 def file_ssdeep(filename):
     """returns the ssdeep hash of a file buffered,
@@ -38,6 +32,7 @@ def file_ssdeep(filename):
         for b in iter(lambda: f.read(128*1024), b''):
             h.update(b)
     return h.digest()
+
 
 malwaredict = defaultdict(list)
 familydict = defaultdict(list)
@@ -56,4 +51,3 @@ for root, dirs, files in os.walk("malpedia"):
             filesha256 = file_sha256('{}'.format(filename))
             filessdeep = file_ssdeep('{}'.format(filename))
             print(' -c ' + contexts + ' -f ' + shlex.quote(filename))
-

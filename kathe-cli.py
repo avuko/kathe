@@ -14,7 +14,8 @@ import requests
 try:
     import redis
 except ImportError:
-    print('pip install redis')
+    # for now I simply pin this to the ancient version
+    print('sudo -HE pip install redis==2.10.6')
     exit(1)
 try:
     import ssdeep
@@ -258,7 +259,9 @@ def add_info(inputname, inputsha256, inputssdeep, inputcontext):
         # add unique key to set with 'incr 1' to keep track of occurance
         # and create a ranked set. Rank may chance over time, but that
         # is not a problem when updates do not happen inbetween calls
+        # newer versions need this reverved
         r.zincrby("names:context", '{}'.format(singlecontext), amount=1)
+        # r.zincrby("names:context", 1, '{}'.format(singlecontext))
         info_string = 'sha256:{}:ssdeep:{}:inputname:{}:inputcontext:{}'
         r.sadd('info:context:{}'.format(singlecontext),
                info_string.format(inputsha256,

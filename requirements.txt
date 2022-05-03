@@ -1,8 +1,0 @@
--i https://pypi.org/simple
-bottle-redis==0.2.3
-bottle==0.12.16
-cffi==1.12.3
-pycparser==2.19
-redis==2.10.6
-six==1.12.0
-ssdeep==3.3

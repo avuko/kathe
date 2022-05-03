@@ -1,0 +1,23 @@
+name: kathe-clie
+version: "1.0"
+author: avuko <iamavuko@gmail.com>
+about: Configuration for kathe-cli
+args:
+    - filepath:
+        short: f
+        long: filepath
+        value_name: filepath
+        help: define file to analyse
+        takes_value: true
+    - dbnumber:
+        short: d
+        long: dbnumber
+        value_name: dbnumber
+        default_value: 7
+        help: give redis db number, default: 7
+    - redishost:
+        short: r
+        long: redishost
+        value_name: redishost
+        default_value: "127.0.0.1"
+        help: give redis host address, default: 127.0.0.1

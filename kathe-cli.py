@@ -47,7 +47,7 @@ parser.add_option("-r", "--redisdb", dest="redisdb", action="store",
 parser.add_option("-f", "--file", dest="filename", action='store',
                   type='string', help="analyse a file.", metavar="FILE")
 parser.add_option("-i", "--csv", dest="csvfile", action='store',
-                  type='string', help="import a csv", metavar="FILE")
+                  type='string', help="csv with headers ssdeep,sha256,inputname,context0 (primary context),context1.", metavar="FILE")
 parser.add_option("-j", "--json", dest="jason", action='store', type='string',
                   help=("use json formatted strings (per line) as source:"
                         """ ["ssdeephash","name","sha256"] """
@@ -79,6 +79,7 @@ else:
 if options.redisdb and options.add:
     exit("Choose either direct redis storing, or using a REST add interface")
 
+# waitwut?!
 if options.redisdb and options.redisdb:
     if int(options.redisdb) < 17 and int(options.redisdb) > 0:
         redisdbnr = options.redisdb
@@ -98,7 +99,8 @@ if options.redisdb and options.redisdb:
             exit(e)
     else:
         exit("Give us a real redis db number to work with")
-
+else:
+    exit("-r option is required")
 
 # connect to neo4j.
 # graph = Graph(secrets.neo4jurl, auth=(secrets.neo4juser, secrets.neo4jpass))
